@@ -17,9 +17,9 @@ Load-bearing. When a proposed change doesn't fit, the right answer is usually "d
 
 ## Layout
 
-- `claude-tmux.service` + `claude-tmux-launch` — the persistent main session.
-- `claude-spawn`, `claude-spawn-sandbox`, `claude-talk`, `claude-kill`, `claude-list`, `claude-random-name` — helper scripts, one verb each.
-- `config.env` — defaults for `REMOTE_CONTROL` and `SKIP_PERMISSIONS`. Installed to `~/.config/remote-claude/config.env` on first run (user-edited, not symlinked).
+- `bin/claude-*` — all helper scripts, one verb each (`claude-spawn`, `claude-spawn-sandbox`, `claude-talk`, `claude-kill`, `claude-list`, `claude-random-name`, `claude-tmux-launch`). Symlinked into `~/.local/bin/` by `setup.sh`.
+- `claude-tmux.service` — systemd user unit; invokes `bin/claude-tmux-launch` via the installed `~/.local/bin` copy.
+- `config.env` — reference file documenting `REMOTE_CONTROL` and `SKIP_PERMISSIONS`. The actual runtime config is written to `~/.config/remote-claude/config.env` interactively on first install.
 - `skills/<name>/SKILL.md` — how a live Claude discovers each helper.
 - `ssh-autoattach.sh` — login-shell snippet that drops SSH users into the main session.
 - `setup.sh` — one-shot installer. Expected to be interactive.

@@ -17,7 +17,17 @@ link() {
 			echo "  already linked: $dst"
 			return
 		fi
-		echo "  ERROR: $dst -> $current (refusing to clobber)" >&2
+		# Dangling symlink (target missing) — safe to replace. Handles the
+		# case where a previous install pointed at an old repo layout and
+		# the source has since moved (e.g. claude-* -> bin/claude-*).
+		if ! [ -e "$dst" ]; then
+			echo "  replacing stale symlink: $dst (was -> $current)"
+			rm "$dst"
+			ln -s "$src" "$dst"
+			echo "  linked: $dst -> $src"
+			return
+		fi
+		echo "  ERROR: $dst -> $current (refusing to clobber live target)" >&2
 		exit 1
 	fi
 	if [ -e "$dst" ]; then
@@ -139,7 +149,7 @@ fi
 step "Installing helper scripts into ~/.local/bin"
 mkdir -p "$HOME/.local/bin"
 for s in claude-spawn claude-spawn-sandbox claude-talk claude-kill claude-list claude-random-name claude-tmux-launch; do
-	link "$DIR/$s" "$HOME/.local/bin/$s"
+	link "$DIR/bin/$s" "$HOME/.local/bin/$s"
 done
 
 step "Installing skill symlinks"
