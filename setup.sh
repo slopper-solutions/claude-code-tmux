@@ -100,9 +100,33 @@ if ! [ -x "$HOME/.local/bin/claude" ]; then
 fi
 echo "  ok: $("$HOME/.local/bin/claude" --version 2>/dev/null || echo 'version unknown')"
 
-case ":$PATH:" in
-	*":$HOME/.local/bin:"*) ;;
-	*) echo "  NOTE: $HOME/.local/bin is not in PATH — add it to your shell rc for interactive 'claude' use." ;;
+step "Ensuring ~/.local/bin is on PATH for interactive shells"
+# .profile handles login shells already; but tmux panes and `ssh host cmd` run
+# non-login interactive bash/zsh, which only source .bashrc / .zshrc. Append a
+# sentinel-guarded snippet so claude-* helpers are on PATH everywhere the user
+# might land. Idempotent — re-runs are a no-op.
+PATH_SENTINEL="# claude-tmux ~/.local/bin on PATH"
+add_path_snippet() {
+	f="$1"
+	if [ -f "$f" ] && grep -qF "$PATH_SENTINEL" "$f" 2>/dev/null; then
+		echo "  already present: $f"
+		return
+	fi
+	{
+		echo ""
+		echo "$PATH_SENTINEL"
+		echo 'if [ -d "$HOME/.local/bin" ]; then'
+		echo '    case ":$PATH:" in'
+		echo '        *":$HOME/.local/bin:"*) ;;'
+		echo '        *) PATH="$HOME/.local/bin:$PATH" ;;'
+		echo '    esac'
+		echo 'fi'
+	} >> "$f"
+	echo "  appended to: $f"
+}
+add_path_snippet "$HOME/.bashrc"
+case "${SHELL:-}" in
+	*zsh*) add_path_snippet "$HOME/.zshrc" ;;
 esac
 
 step "Checking claude.ai login (required for --rc)"
@@ -164,6 +188,32 @@ link "$DIR/skills/peek-claude" "$HOME/.claude/skills/peek-claude"
 step "Installing systemd user unit"
 mkdir -p "$HOME/.config/systemd/user"
 link "$DIR/claude-tmux.service" "$HOME/.config/systemd/user/claude-tmux.service"
+
+step "Installing tmux config niceties"
+# Tmux settings Claude Code's docs recommend (passthrough, extended keys) live
+# in $DIR/tmux.conf. We don't own ~/.tmux.conf — just inject a sentinel-guarded
+# 'source-file -q' line so existing user configs keep winning.
+TMUX_CONF_SRC="$DIR/tmux.conf"
+TMUX_CONF_DST="$HOME/.tmux.conf"
+TMUX_SENTINEL="# claude-tmux source (Claude Code tmux niceties)"
+if [ -f "$TMUX_CONF_DST" ] && grep -qF "$TMUX_SENTINEL" "$TMUX_CONF_DST" 2>/dev/null; then
+	echo "  already present: $TMUX_CONF_DST"
+else
+	# Leading newline separates from any existing config; harmless if file is
+	# empty or missing (>> creates it).
+	{
+		echo ""
+		echo "$TMUX_SENTINEL"
+		echo "source-file -q $TMUX_CONF_SRC"
+	} >> "$TMUX_CONF_DST"
+	echo "  appended to: $TMUX_CONF_DST (sources $TMUX_CONF_SRC)"
+	# If a tmux server is already running (common on re-runs), reload in place
+	# so the new settings apply without waiting for the next server restart.
+	if tmux info >/dev/null 2>&1; then
+		tmux source-file "$TMUX_CONF_DST" 2>/dev/null || true
+		echo "  reloaded live tmux server"
+	fi
+fi
 
 step "Installing default config (first run only)"
 # Config is a user-edited file, not a symlink — a symlink would either force
