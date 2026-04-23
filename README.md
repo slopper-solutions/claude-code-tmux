@@ -28,18 +28,6 @@ Usage
 
 Congratulations. Have fun slopping persistently with Claude mobile app access.
 
-Bug reports
------------
-
-Create an issue.
-
-Contributing
-------------
-
-Generally, I will not accept pull requests made directly into this repository.
-All code *is* AI generated, and this will be a persistant state for this
-repository.
-
 Copyright
 ---------
 
