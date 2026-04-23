@@ -28,4 +28,12 @@ set -- "$CLAUDE_BIN"
 [ "$REMOTE_CONTROL" = "1" ] && set -- "$@" --rc "$NAME"
 [ "$SKIP_PERMISSIONS" = "1" ] && set -- "$@" --dangerously-skip-permissions
 
-exec tmux new-session -d -s main -n "$NAME" "$@"
+tmux new-session -d -s main -n "$NAME" "$@"
+
+# Auto-accept Claude Code's workspace trust dialog. No config mechanism
+# exists for pre-trusting directories (issue anthropics/claude-code#29285),
+# so the only option from a headless context is to blind-send Enter after
+# the session is up. Harmless if the dialog isn't shown — at Claude's chat
+# prompt an empty submit is a no-op.
+sleep 2
+tmux send-keys -t "main:=$NAME" Enter

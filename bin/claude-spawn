@@ -43,8 +43,13 @@ set -- "$CLAUDE_BIN"
 
 tmux new-window -t "$SESSION" -n "$NAME" "$@"
 
+# Auto-accept Claude Code's workspace trust dialog (no pre-trust config
+# exists — see anthropics/claude-code#29285). Harmless if not shown.
+sleep 2
+tmux send-keys -t "$SESSION:=$NAME" Enter
+
 if [ -n "$PROMPT" ]; then
-	sleep 3
+	sleep 1
 	tmux send-keys -t "$SESSION:=$NAME" "$PROMPT" Enter
 fi
 

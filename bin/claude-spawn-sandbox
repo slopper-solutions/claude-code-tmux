@@ -82,8 +82,14 @@ CMD="bwrap \
 tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
 tmux new-window -t "$SESSION" -n "$NAME" "$CMD"
 
+# Auto-accept Claude Code's workspace trust dialog (no pre-trust config
+# exists — see anthropics/claude-code#29285). Harmless if not shown. The
+# sandbox adds a bit of startup latency so we wait slightly longer.
+sleep 3
+tmux send-keys -t "$SESSION:=$NAME" Enter
+
 if [ -n "$PROMPT" ]; then
-	sleep 3
+	sleep 1
 	tmux send-keys -t "$SESSION:=$NAME" "$PROMPT" Enter
 fi
 
