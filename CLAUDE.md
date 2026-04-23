@@ -13,6 +13,7 @@ Load-bearing. When a proposed change doesn't fit, the right answer is usually "d
 - **Window names carry the hostname.** The `[<host>] <slug>` format is load-bearing — it keeps multiple VPS hosts distinguishable in the Claude mobile session list. Don't shorten, omit, or URL-encode it.
 - **`--rc` is the mobile primitive.** Built into Claude Code; don't reinvent the transport layer (no Discord bots, no custom sockets, no web dashboards baked into this repo).
 - **No runtime deps beyond tmux, systemd, coreutils, and optionally bwrap.** Anything else is out.
+- **Stay current with Claude Code.** This repo is a thin wrapper. When Claude Code ships a new flag, feature, or install mechanism, check whether to adopt it. When it deprecates something we use, migrate. Diverging from Claude Code's conventions is how this project rots.
 
 ## Layout
 
@@ -42,6 +43,12 @@ These have been considered and rejected for this repo. Point at the named altern
 - Notification bridges (ntfy / Discord / Telegram) — see `tap-to-tmux`, or Claude Code Channels. If added here, it belongs in a separate opt-in script, not baked into the core.
 - Web dashboards, TUI frontends, multi-user support.
 
-## Compare-yourself prompt
+## Compare-yourself audit
 
-A live Claude working on this repo can be asked to audit against this file directly — e.g. "compare the current state against CLAUDE.md and flag anything drifting from the design principles." Keep this file short enough that such audits remain useful; if it grows into architecture docs that duplicate the code, it starts rotting against the code and should be trimmed back.
+The point of this audit is catching Claude Code drift, not re-litigating repo design. A live Claude working here can be asked:
+
+> Compare this repo against current Claude Code. Flag anything we should adopt, anything we use that's been deprecated, and anything an official Claude Code feature would handle better than our wrappers.
+
+The audit is only as good as the Claude running it. It should pull current state from `claude --help`, `claude --version`, the `claude-code-guide` subagent, or `WebFetch` of `code.claude.com` / the official changelog before flagging anything — knowledge-cutoff recall alone will miss recent changes. Output should cite specific deltas (new flags, renamed commands, install-path changes, newly-stabilized features) with pointers to where in the repo they'd land, not broad rewrites.
+
+Keep this file short enough that audits against it remain useful; if it grows into architecture docs that duplicate the code, it starts rotting against the code and should be trimmed back.
