@@ -50,7 +50,13 @@ tmux send-keys -t "$SESSION:=$NAME" Enter
 
 if [ -n "$PROMPT" ]; then
 	sleep 1
-	tmux send-keys -t "$SESSION:=$NAME" "$PROMPT" Enter
+	# Claude Code's Ink-based input treats a batched text+Enter as a paste
+	# (which doesn't auto-submit). Send the text with -l (literal, no key-name
+	# interpretation inside the prompt), wait for the paste window to close,
+	# then send Enter as a separate keystroke so it's read as submit intent.
+	tmux send-keys -l -t "$SESSION:=$NAME" "$PROMPT"
+	sleep 0.3
+	tmux send-keys -t "$SESSION:=$NAME" Enter
 fi
 
 echo "$SESSION:=$NAME"

@@ -16,4 +16,9 @@ shift
 # fnmatch character classes.
 WIN="${WIN#=}"
 
-tmux send-keys -t "$SESSION:=$WIN" "$*" Enter
+# Text and Enter sent separately: Claude Code's Ink-based input treats a
+# batched text+Enter as a paste (which doesn't auto-submit). The intervening
+# sleep lets the paste window close so the final Enter is read as submit.
+tmux send-keys -l -t "$SESSION:=$WIN" "$*"
+sleep 0.3
+tmux send-keys -t "$SESSION:=$WIN" Enter
