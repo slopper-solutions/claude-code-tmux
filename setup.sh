@@ -100,35 +100,6 @@ if ! [ -x "$HOME/.local/bin/claude" ]; then
 fi
 echo "  ok: $("$HOME/.local/bin/claude" --version 2>/dev/null || echo 'version unknown')"
 
-step "Ensuring ~/.local/bin is on PATH for interactive shells"
-# .profile handles login shells already; but tmux panes and `ssh host cmd` run
-# non-login interactive bash/zsh, which only source .bashrc / .zshrc. Append a
-# sentinel-guarded snippet so claude-* helpers are on PATH everywhere the user
-# might land. Idempotent — re-runs are a no-op.
-PATH_SENTINEL="# claude-tmux ~/.local/bin on PATH"
-add_path_snippet() {
-	f="$1"
-	if [ -f "$f" ] && grep -qF "$PATH_SENTINEL" "$f" 2>/dev/null; then
-		echo "  already present: $f"
-		return
-	fi
-	{
-		echo ""
-		echo "$PATH_SENTINEL"
-		echo 'if [ -d "$HOME/.local/bin" ]; then'
-		echo '    case ":$PATH:" in'
-		echo '        *":$HOME/.local/bin:"*) ;;'
-		echo '        *) PATH="$HOME/.local/bin:$PATH" ;;'
-		echo '    esac'
-		echo 'fi'
-	} >> "$f"
-	echo "  appended to: $f"
-}
-add_path_snippet "$HOME/.bashrc"
-case "${SHELL:-}" in
-	*zsh*) add_path_snippet "$HOME/.zshrc" ;;
-esac
-
 step "Checking claude.ai login (required for --rc)"
 check_login() {
 	"$HOME/.local/bin/claude" auth status --json 2>/dev/null | grep -qE '"loggedIn"[[:space:]]*:[[:space:]]*true'
