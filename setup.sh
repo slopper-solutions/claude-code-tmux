@@ -154,6 +154,19 @@ step "Installing systemd user unit"
 mkdir -p "$HOME/.config/systemd/user"
 link "$DIR/claude-tmux.service" "$HOME/.config/systemd/user/claude-tmux.service"
 
+step "Installing default config (first run only)"
+# Config is copied, not symlinked — it's meant to be user-edited, and a
+# symlink would either force edits in the repo or get clobbered on pull.
+CONFIG_DIR="$HOME/.config/remote-claude"
+CONFIG_DST="$CONFIG_DIR/config.env"
+mkdir -p "$CONFIG_DIR"
+if [ -e "$CONFIG_DST" ]; then
+	echo "  already present: $CONFIG_DST (leaving user edits alone)"
+else
+	cp "$DIR/config.env" "$CONFIG_DST"
+	echo "  installed: $CONFIG_DST"
+fi
+
 step "Installing SSH auto-attach into login rc"
 AUTOATTACH_SRC="$DIR/ssh-autoattach.sh"
 SENTINEL="# claude-tmux ssh auto-attach"
@@ -191,7 +204,7 @@ systemctl --user daemon-reload
 
 step "Enabling and starting claude-tmux.service"
 systemctl --user enable claude-tmux.service
-if ! systemctl --user start claude-tmux.service; then
+if ! systemctl --user restart claude-tmux.service; then
 	echo "  ERROR: service failed to start" >&2
 	echo "  Logs: journalctl --user -u claude-tmux.service -n 50" >&2
 	exit 1
@@ -209,5 +222,10 @@ echo "  spawn a helper:       claude-spawn <name> \"<optional handoff prompt>\""
 echo "  spawn (sandboxed):    claude-spawn-sandbox <dir> <name> \"<optional prompt>\""
 echo "  send to a window:     claude-talk <window> <text...>"
 echo "  kill a helper:        claude-kill <window>"
+echo ""
+echo "  edit defaults:        \$EDITOR $CONFIG_DST"
+echo "    REMOTE_CONTROL=1    --rc on main session and new helpers"
+echo "    SKIP_PERMISSIONS=1  --dangerously-skip-permissions on both"
+echo "    after editing: systemctl --user restart claude-tmux  (main only)"
 echo ""
 echo "  (these all live in ~/.local/bin — ensure that's on your PATH)"

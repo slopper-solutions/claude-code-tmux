@@ -4,6 +4,7 @@ After=default.target
 
 [Service]
 Type=forking
+EnvironmentFile=-%h/.config/remote-claude/config.env
 ExecStart=%h/.local/bin/claude-tmux-launch
 ExecStop=/usr/bin/tmux kill-session -t main
 Restart=on-failure

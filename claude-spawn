@@ -1,17 +1,47 @@
 #!/bin/sh
+# Spawn a helper Claude in a named window of the persistent `main` tmux
+# session. Window name is decorated as "[<hostname>] <name>" so sessions from
+# multiple hosts stay distinguishable in the Claude mobile app.
+#
+# Usage: claude-spawn [--rc|--no-rc] [--yolo|--safe] [<name>] [<prompt>]
+#
+# Defaults come from ~/.config/remote-claude/config.env (REMOTE_CONTROL=1,
+# SKIP_PERMISSIONS=1 baked in if the file is missing). Per-call flags win.
 set -e
 
 SESSION="main"
 CLAUDE_BIN="$HOME/.local/bin/claude"
+CONFIG_FILE="$HOME/.config/remote-claude/config.env"
 HN="$(uname -n)"
 HN="${HN%%.*}"
+
+REMOTE_CONTROL=1
+SKIP_PERMISSIONS=1
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--rc)     REMOTE_CONTROL=1; shift ;;
+		--no-rc)  REMOTE_CONTROL=0; shift ;;
+		--yolo)   SKIP_PERMISSIONS=1; shift ;;
+		--safe)   SKIP_PERMISSIONS=0; shift ;;
+		--)       shift; break ;;
+		-*)       echo "claude-spawn: unknown flag: $1" >&2; exit 2 ;;
+		*)        break ;;
+	esac
+done
 
 RAW_NAME="${1:-$(claude-random-name 2>/dev/null || echo "claude-$(date +%s)")}"
 NAME="[$HN] $RAW_NAME"
 PROMPT="$2"
 
 tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
-tmux new-window -t "$SESSION" -n "$NAME" "$CLAUDE_BIN --rc \"$NAME\" --dangerously-skip-permissions"
+
+set -- "$CLAUDE_BIN"
+[ "$REMOTE_CONTROL" = "1" ] && set -- "$@" --rc "$NAME"
+[ "$SKIP_PERMISSIONS" = "1" ] && set -- "$@" --dangerously-skip-permissions
+
+tmux new-window -t "$SESSION" -n "$NAME" "$@"
 
 if [ -n "$PROMPT" ]; then
 	sleep 3
