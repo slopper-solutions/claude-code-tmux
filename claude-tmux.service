@@ -1,0 +1,13 @@
+[Unit]
+Description=Persistent tmux session running Claude Code
+After=default.target
+
+[Service]
+Type=forking
+ExecStart=%h/.local/bin/claude-tmux-launch
+ExecStop=/usr/bin/tmux kill-session -t main
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,21 @@
+#!/bin/sh
+# claude-random-name: print a random 3-word hyphenated name, what3words-style.
+# Used as the default name for spawned Claudes when the caller doesn't pass
+# one. ~57 * ~57 * ~60 ≈ 195k combinations — collisions are negligible in
+# practice for the handful of Claudes a user runs concurrently.
+set -e
+
+ADJECTIVES="brave calm eager fancy gentle happy jolly kind lucky merry nimble proud quick rapid silly swift tiny wise zany bold cozy crisp dapper fluffy hazy icy jumpy keen lively mellow noble plucky quirky spry sturdy tidy vivid witty bright chatty dainty fiery frosty gleeful humble jazzy lofty nifty peppy quaint rowdy saucy stout terse vast zesty cheery dusky eerie sunny"
+
+NOUNS="fox owl wolf otter badger lynx moose hare stoat crow raven sparrow hawk eagle mole shrew newt toad heron stork ibis swan goose duck frog bear deer elk skunk vole robin finch oriole sable marten mink weasel beaver lemur panda quail snipe teal gull tern kite dove puffin puma bison cougar jaguar falcon salmon trout pike carp perch bass koi ferret"
+
+pick() {
+	list="$1"
+	count=$(echo "$list" | wc -w)
+	# 2 bytes from /dev/urandom, modulo count, 1-indexed for cut.
+	raw=$(od -An -N2 -tu2 /dev/urandom | tr -d ' \n')
+	idx=$((raw % count + 1))
+	echo "$list" | cut -d' ' -f"$idx"
+}
+
+printf '%s-%s-%s\n' "$(pick "$ADJECTIVES")" "$(pick "$ADJECTIVES")" "$(pick "$NOUNS")"

@@ -1,0 +1,30 @@
+#!/bin/sh
+# Kill a spawned Claude Code window inside the persistent `main` tmux session.
+# Refuses to kill the hostname-prefixed main window (or a bare `main` window),
+# so the foundational Claude session stays up.
+set -e
+
+if [ $# -lt 1 ]; then
+	echo "usage: claude-kill <window>" >&2
+	echo "  Closes tmux window main:<window>. Refuses the main session window." >&2
+	exit 2
+fi
+
+SESSION="main"
+WIN="$1"
+# Accept both bare names and already-'='-prefixed targets.
+WIN="${WIN#=}"
+
+HN=$(uname -n)
+HN=${HN%%.*}
+[ -n "$HN" ] || HN="host"
+MAIN_WIN="[$HN] main"
+
+if [ "$WIN" = "$MAIN_WIN" ] || [ "$WIN" = "main" ]; then
+	echo "refusing to kill the main session window ($WIN)" >&2
+	echo "use 'systemctl --user stop claude-tmux' if you really want that down" >&2
+	exit 1
+fi
+
+tmux kill-window -t "$SESSION:=$WIN"
+echo "killed: $SESSION:$WIN"

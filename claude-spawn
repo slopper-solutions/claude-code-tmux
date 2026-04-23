@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+SESSION="main"
+CLAUDE_BIN="$HOME/.local/bin/claude"
+HN="$(uname -n)"
+HN="${HN%%.*}"
+
+RAW_NAME="${1:-$(claude-random-name 2>/dev/null || echo "claude-$(date +%s)")}"
+NAME="[$HN] $RAW_NAME"
+PROMPT="$2"
+
+tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
+tmux new-window -t "$SESSION" -n "$NAME" "$CLAUDE_BIN --rc \"$NAME\" --dangerously-skip-permissions"
+
+if [ -n "$PROMPT" ]; then
+	sleep 3
+	tmux send-keys -t "$SESSION:=$NAME" "$PROMPT" Enter
+fi
+
+echo "$SESSION:=$NAME"

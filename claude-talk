@@ -1,0 +1,19 @@
+#!/bin/sh
+set -e
+
+if [ $# -lt 2 ]; then
+	echo "usage: claude-talk <window> <text...>" >&2
+	echo "  sends <text> + Enter to tmux window main:<window>" >&2
+	exit 2
+fi
+
+SESSION="main"
+WIN="$1"
+shift
+
+# Strip a leading '=' if the caller already included one, then always add it
+# back — window names contain '[' and ']' which tmux would otherwise treat as
+# fnmatch character classes.
+WIN="${WIN#=}"
+
+tmux send-keys -t "$SESSION:=$WIN" "$*" Enter

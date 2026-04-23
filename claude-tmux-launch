@@ -1,0 +1,20 @@
+#!/bin/sh
+# Launch the persistent `main` tmux session running Claude with Remote Control
+# enabled. Decorates the window/RC name with the short hostname so sessions
+# from multiple VPS hosts stay distinguishable in the Claude mobile app.
+#
+# Invoked by claude-tmux.service. Kept as a standalone script (rather than an
+# inline sh -c in the unit) to avoid systemd's specifier/escaping rules
+# clashing with shell parameter expansion like ${HN%%.*}.
+set -e
+
+CLAUDE_BIN="$HOME/.local/bin/claude"
+
+HN=$(uname -n)
+HN=${HN%%.*}
+# Defensive fallback in case uname -n returns empty on some exotic init state.
+[ -n "$HN" ] || HN="host"
+
+NAME="[$HN] main"
+
+exec tmux new-session -d -s main -n "$NAME" "$CLAUDE_BIN" --rc "$NAME" --dangerously-skip-permissions

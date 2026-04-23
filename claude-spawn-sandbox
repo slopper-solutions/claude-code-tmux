@@ -1,0 +1,56 @@
+#!/bin/sh
+set -e
+
+if [ $# -lt 1 ]; then
+	echo "usage: claude-spawn-sandbox <dir> [name] [prompt]" >&2
+	echo "  Spawns a Claude Code instance in tmux, filesystem-restricted to <dir>." >&2
+	exit 2
+fi
+
+SESSION="main"
+CLAUDE_BIN="$HOME/.local/bin/claude"
+HN="$(uname -n)"
+HN="${HN%%.*}"
+DIR="$1"
+RAW_NAME="${2:-$(claude-random-name 2>/dev/null || echo "claude-$(date +%s)")}"
+NAME="[$HN] $RAW_NAME"
+PROMPT="$3"
+
+if ! command -v bwrap >/dev/null 2>&1; then
+	echo "bwrap not installed. On Debian/Ubuntu: sudo apt-get install bubblewrap" >&2
+	exit 1
+fi
+
+mkdir -p "$DIR"
+DIR="$(cd "$DIR" && pwd)"
+
+mkdir -p "$HOME/.config/claude" "$HOME/.claude" "$HOME/.cache/claude"
+
+# Sandbox layout:
+#   / is mounted read-only (Claude can read system tools & its own binary).
+#   /tmp, /dev, /proc are fresh so there's no cross-talk with other sandboxes.
+#   $DIR and Claude's own state dirs are bound read-write. Nothing else is
+#   writable — so a Claude in here cannot modify files outside $DIR.
+#   Network is shared with the host: --rc needs outbound access to claude.ai.
+CMD="bwrap \
+	--ro-bind / / \
+	--tmpfs /tmp \
+	--dev /dev \
+	--proc /proc \
+	--bind '$HOME/.config/claude' '$HOME/.config/claude' \
+	--bind '$HOME/.claude' '$HOME/.claude' \
+	--bind-try '$HOME/.cache/claude' '$HOME/.cache/claude' \
+	--bind '$DIR' '$DIR' \
+	--chdir '$DIR' \
+	--die-with-parent \
+	'$CLAUDE_BIN' --rc '$NAME' --dangerously-skip-permissions"
+
+tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
+tmux new-window -t "$SESSION" -n "$NAME" "$CMD"
+
+if [ -n "$PROMPT" ]; then
+	sleep 3
+	tmux send-keys -t "$SESSION:=$NAME" "$PROMPT" Enter
+fi
+
+echo "$SESSION:=$NAME"
