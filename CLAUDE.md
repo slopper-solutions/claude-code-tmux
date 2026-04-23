@@ -17,7 +17,7 @@ Load-bearing. When a proposed change doesn't fit, the right answer is usually "d
 
 ## Layout
 
-- `bin/claude-*` — all helper scripts, one verb each (`claude-spawn`, `claude-spawn-sandbox`, `claude-talk`, `claude-kill`, `claude-list`, `claude-random-name`, `claude-tmux-launch`). Symlinked into `~/.local/bin/` by `setup.sh`.
+- `bin/claude-*` — all helper scripts, one verb each (`claude-spawn`, `claude-spawn-sandbox`, `claude-talk`, `claude-peek`, `claude-kill`, `claude-list`, `claude-random-name`, `claude-tmux-launch`). Symlinked into `~/.local/bin/` by `setup.sh`.
 - `claude-tmux.service` — systemd user unit; invokes `bin/claude-tmux-launch` via the installed `~/.local/bin` copy.
 - `config.env` — reference file documenting `REMOTE_CONTROL` and `SKIP_PERMISSIONS`. The actual runtime config is written to `~/.config/remote-claude/config.env` interactively on first install.
 - `skills/<name>/SKILL.md` — how a live Claude discovers each helper.

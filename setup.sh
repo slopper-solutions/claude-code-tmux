@@ -148,7 +148,7 @@ fi
 
 step "Installing helper scripts into ~/.local/bin"
 mkdir -p "$HOME/.local/bin"
-for s in claude-spawn claude-spawn-sandbox claude-talk claude-kill claude-list claude-random-name claude-tmux-launch; do
+for s in claude-spawn claude-spawn-sandbox claude-talk claude-kill claude-list claude-peek claude-random-name claude-tmux-launch; do
 	link "$DIR/bin/$s" "$HOME/.local/bin/$s"
 done
 
@@ -159,6 +159,7 @@ link "$DIR/skills/claude-talk" "$HOME/.claude/skills/claude-talk"
 link "$DIR/skills/spawn-claude-sandbox" "$HOME/.claude/skills/spawn-claude-sandbox"
 link "$DIR/skills/kill-claude" "$HOME/.claude/skills/kill-claude"
 link "$DIR/skills/list-claudes" "$HOME/.claude/skills/list-claudes"
+link "$DIR/skills/peek-claude" "$HOME/.claude/skills/peek-claude"
 
 step "Installing systemd user unit"
 mkdir -p "$HOME/.config/systemd/user"
@@ -254,6 +255,7 @@ echo "  list Claudes:         claude-list"
 echo "  spawn a helper:       claude-spawn <name> \"<optional handoff prompt>\""
 echo "  spawn (sandboxed):    claude-spawn-sandbox <dir> <name> \"<optional prompt>\""
 echo "  send to a window:     claude-talk <window> <text...>"
+echo "  peek at a window:     claude-peek <window>"
 echo "  kill a helper:        claude-kill <window>"
 echo ""
 echo "  edit defaults:        \$EDITOR $CONFIG_DST"
