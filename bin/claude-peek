@@ -10,6 +10,9 @@ set -e
 
 SESSION="main"
 LINES=""
+HN="$(uname -n)"
+HN="${HN%%.*}"
+[ -n "$HN" ] || HN="host"
 
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -23,12 +26,21 @@ done
 
 if [ $# -lt 1 ]; then
 	echo "usage: claude-peek [-n <lines>] <window>" >&2
-	echo "  Prints pane contents of main:<window> (e.g. '[myvps] auth-refactor')." >&2
+	echo "  Prints pane contents of main:<window>." >&2
+	echo "  Bare names are decorated to '[<hostname>] <name>'; pass the full" >&2
+	echo "  '[host] name' form to peek at a window from another host." >&2
 	echo "  -n <lines> extends capture into scrollback above the visible region." >&2
 	exit 2
 fi
 
 WIN="${1#=}"
+# Bare name (no '[...]' prefix) → decorate with this host's prefix, matching
+# the convention claude-spawn uses. A caller targeting a foreign host passes
+# the full '[host] name' form, which is left alone.
+case "$WIN" in
+	\[*\]\ *) ;;
+	*) WIN="[$HN] $WIN" ;;
+esac
 
 if [ -n "$LINES" ]; then
 	tmux capture-pane -p -S "-$LINES" -t "$SESSION:=$WIN"

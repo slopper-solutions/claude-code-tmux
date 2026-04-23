@@ -12,7 +12,7 @@ Read-only counterpart to `claude-talk` and `claude-list`. `claude-talk` writes t
 claude-peek [-n <lines>] <window>
 ```
 
-- `<window>` — the decorated window name (e.g. `[myvps] auth-refactor`). Quote it; it contains a space. Bare name only (no `=` prefix — the script handles exact matching internally).
+- `<window>` — the window name. A bare slug (`auth-refactor`) is auto-decorated with this host's prefix to `[<hostname>] auth-refactor`, so most of the time that's all you need to pass. If you're peeking at a window from a different host, pass the full `[otherhost] name` form (quoted — it contains a space). No `=` prefix; the script handles exact matching internally.
 - `-n <lines>` — extends the capture backward into tmux scrollback by that many lines. Without it, you get exactly what's currently on screen.
 
 Installed into `~/.local/bin` by `setup.sh`.
@@ -20,7 +20,7 @@ Installed into `~/.local/bin` by `setup.sh`.
 ## Typical flow
 
 1. `claude-list` to see what's running.
-2. `claude-peek "[myvps] auth-refactor"` to read the visible state.
+2. `claude-peek auth-refactor` to read the visible state (bare name works for this host; use `claude-peek "[otherhost] auth-refactor"` for a foreign host).
 3. **Summarize** to the user — don't dump the raw capture. "It's in the middle of running a test; last message is about a failing assertion in `foo_test.py`." The capture can be ~30 lines of box-drawn TUI; the user wants the signal.
 4. If action is needed (reply, interrupt, kill), use the appropriate sibling skill.
 

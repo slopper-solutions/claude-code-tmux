@@ -12,12 +12,11 @@ Closes a tmux window inside the `main` session, which exits the Claude process r
 claude-kill <window>
 ```
 
-`<window>` is the full decorated name (e.g. `[myvps] auth-refactor`) — quote it because it contains a space and brackets. List active windows with `tmux list-windows -t main` to see what's available. The script adds tmux's `=` exact-match prefix internally, so you do not need to include it.
+`<window>` can be a bare slug (`auth-refactor`) — the script auto-decorates to `[<hostname>] <name>`, matching the convention `claude-spawn` uses. If you're targeting a window from another host, pass the full `[otherhost] name` form instead (quoted — it contains a space and brackets). List active windows with `claude-list` (or `tmux list-windows -t main`). The script adds tmux's `=` exact-match prefix internally, so you do not need to include it.
 
 ## What it refuses
 
-- `claude-kill [<hostname>] main` — the persistent session kept alive by `claude-tmux.service`. Killing that window is what the unit's restart logic guards against anyway.
-- `claude-kill main` — same, defensive fallback for pre-hostname-prefix setups.
+- `claude-kill main` or `claude-kill "[<hostname>] main"` — both resolve to this host's persistent session window kept alive by `claude-tmux.service`. The script blocks either form.
 
 If the user actually wants the main session down (maintenance, reinstall), that's `systemctl --user stop claude-tmux`, not this skill.
 
