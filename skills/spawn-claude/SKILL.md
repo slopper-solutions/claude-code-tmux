@@ -10,12 +10,20 @@ The persistent tmux session `main` is managed by the `claude-tmux.service` user 
 ## How to spawn
 
 ```
-claude-spawn <name> "<handoff prompt, or omit>"
+claude-spawn [--rc|--no-rc] [--yolo|--safe] [<name>] [<handoff prompt>]
 ```
 
 (`claude-spawn` is installed into `~/.local/bin` by `setup.sh`, so it's on PATH.)
 
-Both args are optional but order-dependent. Omit the name to get an auto-generated three-word identifier like `brave-swift-fox` (what3words-style — more memorable than a timestamp). The script prints the window target on success — it will look like `main:=[<hostname>] <name>`, using tmux's `=` exact-match prefix because window names contain `[` and `]`.
+Positional args are all optional but order-dependent. Omit the name to get an auto-generated three-word identifier like `brave-swift-fox` (what3words-style — more memorable than a timestamp). The script prints the window target on success — it will look like `main:=[<hostname>] <name>`, using tmux's `=` exact-match prefix because window names contain `[` and `]`.
+
+## Flags (per-call overrides of config defaults)
+
+Defaults for both come from `~/.config/remote-claude/config.env` (`REMOTE_CONTROL`, `SKIP_PERMISSIONS`); when the file is absent, both are on. Flags override for one call only:
+
+- `--rc` / `--no-rc` — force Remote Control on/off. `--no-rc` means the spawn will not be reachable from the mobile app; useful for a strictly-local helper the user doesn't want cluttering the session list.
+- `--yolo` / `--safe` — `--yolo` forces `--dangerously-skip-permissions` on (auto-approve every tool call); `--safe` forces it off (prompt for each tool use, the normal Claude Code behaviour). Pick `--safe` when handing the new Claude an untrusted task you want friction in front of.
+- `--` ends flag parsing, in case a name or prompt starts with `-`.
 
 ## Choosing a name
 

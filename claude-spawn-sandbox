@@ -1,16 +1,42 @@
 #!/bin/sh
+# Spawn a Claude Code instance filesystem-restricted to <dir> via bubblewrap.
+# Window name is decorated as "[<hostname>] <name>" so sessions from multiple
+# hosts stay distinguishable in the Claude mobile app.
+#
+# Usage: claude-spawn-sandbox [--rc|--no-rc] [--yolo|--safe] <dir> [<name>] [<prompt>]
+#
+# Defaults come from ~/.config/remote-claude/config.env (REMOTE_CONTROL=1,
+# SKIP_PERMISSIONS=1 baked in if the file is missing). Per-call flags win.
 set -e
 
+SESSION="main"
+CLAUDE_BIN="$HOME/.local/bin/claude"
+CONFIG_FILE="$HOME/.config/remote-claude/config.env"
+HN="$(uname -n)"
+HN="${HN%%.*}"
+
+REMOTE_CONTROL=1
+SKIP_PERMISSIONS=1
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--rc)     REMOTE_CONTROL=1; shift ;;
+		--no-rc)  REMOTE_CONTROL=0; shift ;;
+		--yolo)   SKIP_PERMISSIONS=1; shift ;;
+		--safe)   SKIP_PERMISSIONS=0; shift ;;
+		--)       shift; break ;;
+		-*)       echo "claude-spawn-sandbox: unknown flag: $1" >&2; exit 2 ;;
+		*)        break ;;
+	esac
+done
+
 if [ $# -lt 1 ]; then
-	echo "usage: claude-spawn-sandbox <dir> [name] [prompt]" >&2
+	echo "usage: claude-spawn-sandbox [--rc|--no-rc] [--yolo|--safe] <dir> [<name>] [<prompt>]" >&2
 	echo "  Spawns a Claude Code instance in tmux, filesystem-restricted to <dir>." >&2
 	exit 2
 fi
 
-SESSION="main"
-CLAUDE_BIN="$HOME/.local/bin/claude"
-HN="$(uname -n)"
-HN="${HN%%.*}"
 DIR="$1"
 RAW_NAME="${2:-$(claude-random-name 2>/dev/null || echo "claude-$(date +%s)")}"
 NAME="[$HN] $RAW_NAME"
@@ -25,6 +51,14 @@ mkdir -p "$DIR"
 DIR="$(cd "$DIR" && pwd)"
 
 mkdir -p "$HOME/.config/claude" "$HOME/.claude" "$HOME/.cache/claude"
+
+# Build the trailing claude-invocation portion with flags chosen per-call.
+# Single quotes protect the (possibly-spaced) $NAME value; $HOME, $CLAUDE_BIN,
+# and $NAME are expanded before the final CMD string is handed to tmux, which
+# runs it under sh -c.
+CLAUDE_PART="'$CLAUDE_BIN'"
+[ "$REMOTE_CONTROL" = "1" ]   && CLAUDE_PART="$CLAUDE_PART --rc '$NAME'"
+[ "$SKIP_PERMISSIONS" = "1" ] && CLAUDE_PART="$CLAUDE_PART --dangerously-skip-permissions"
 
 # Sandbox layout:
 #   / is mounted read-only (Claude can read system tools & its own binary).
@@ -43,7 +77,7 @@ CMD="bwrap \
 	--bind '$DIR' '$DIR' \
 	--chdir '$DIR' \
 	--die-with-parent \
-	'$CLAUDE_BIN' --rc '$NAME' --dangerously-skip-permissions"
+	$CLAUDE_PART"
 
 tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
 tmux new-window -t "$SESSION" -n "$NAME" "$CMD"

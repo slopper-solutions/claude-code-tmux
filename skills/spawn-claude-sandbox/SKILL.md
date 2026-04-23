@@ -16,7 +16,7 @@ Same persistent-tmux model as `spawn-claude`, but the child Claude runs inside `
 ## How to spawn
 
 ```
-claude-spawn-sandbox <dir> [name] [prompt]
+claude-spawn-sandbox [--rc|--no-rc] [--yolo|--safe] <dir> [<name>] [<prompt>]
 ```
 
 (Installed into `~/.local/bin` by `setup.sh`.)
@@ -24,6 +24,14 @@ claude-spawn-sandbox <dir> [name] [prompt]
 - `<dir>` is required and will be created if missing.
 - `[name]` becomes the tmux window name and `--rc` session title; auto-generated as a memorable three-word slug (e.g. `brave-swift-fox`) if omitted. The script decorates whatever you pass into `[<hostname>] <name>`, so `claude-spawn-sandbox ./proj scoped-refactor` yields a window/session titled `[<hostname>] scoped-refactor`. Pass the bare name; don't include brackets or the hostname yourself.
 - `[prompt]` is sent after startup. Same briefing rules as `spawn-claude` — self-contained, no deictic references.
+
+## Flags (per-call overrides of config defaults)
+
+Defaults come from `~/.config/remote-claude/config.env` (`REMOTE_CONTROL`, `SKIP_PERMISSIONS`); when the file is absent, both are on. Flags override for one call only:
+
+- `--rc` / `--no-rc` — force Remote Control on/off. `--no-rc` keeps the sandbox entirely off the mobile session list.
+- `--yolo` / `--safe` — `--yolo` forces `--dangerously-skip-permissions` on inside the sandbox; `--safe` forces per-tool prompts. Since the sandbox already confines writes, `--safe` here is the "belt and suspenders" combination: filesystem fence *plus* tool-level friction.
+- `--` ends flag parsing.
 
 The script prints the full window target on success (e.g. `main:=[<hostname>] scoped-refactor`). The `=` is tmux's exact-match prefix — leave it in any follow-up `tmux` command, otherwise the `[...]` in the name is treated as a character-class glob. To capture the mobile URL, use exactly that target:
 
