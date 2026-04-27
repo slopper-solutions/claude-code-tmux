@@ -1,6 +1,6 @@
 # Sourced from ~/.profile / ~/.bash_profile / ~/.zprofile at login.
 # On interactive SSH logins, attach to the persistent `main` tmux session so
-# the user lands directly in Claude. Guard rails:
+# the user lands directly in the bootstrap agent. Guard rails:
 #   - Only fire under SSH (leaves local console logins alone).
 #   - Only if we're not already inside a tmux session (no nesting).
 #   - Only if stdin is a tty (skip scp, rsync, non-interactive runs).

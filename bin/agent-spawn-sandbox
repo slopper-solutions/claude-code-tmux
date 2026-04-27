@@ -5,23 +5,23 @@
 # Usage: agent-spawn-sandbox [--rc|--no-rc] [--yolo|--safe] [--harness=<name>]
 #                            <dir> [<name>] [<prompt>]
 #
-# Defaults: harness=claude, --rc/--yolo from ~/.config/remote-claude/config.env.
+# Defaults: harness=claude, --rc/--yolo from ~/.config/agents/config.env.
 # Per-harness behavior comes from harnesses.d/<harness>.conf — only harnesses
 # with SANDBOX_OK=1 and STATUS=stable are accepted.
 set -e
 
-SESSION="${REMOTE_CLAUDE_SESSION:-main}"
-CONFIG_FILE="$HOME/.config/remote-claude/config.env"
+SESSION="${AGENT_SESSION:-main}"
+CONFIG_FILE="$HOME/.config/agents/config.env"
 HN="$(uname -n)"
 HN="${HN%%.*}"
 [ -n "$HN" ] || HN="host"
 
 HARNESSES_DIR=""
-for cand in "$REMOTE_CLAUDE_HARNESSES_DIR" "$HOME/.config/remote-claude/harnesses.d"; do
+for cand in "$AGENT_HARNESSES_DIR" "$HOME/.config/agents/harnesses.d"; do
 	[ -n "$cand" ] && [ -d "$cand" ] && { HARNESSES_DIR="$cand"; break; }
 done
 if [ -z "$HARNESSES_DIR" ]; then
-	echo "agent-spawn-sandbox: harnesses.d not found (looked at \$REMOTE_CLAUDE_HARNESSES_DIR and ~/.config/remote-claude/harnesses.d)" >&2
+	echo "agent-spawn-sandbox: harnesses.d not found (looked at \$AGENT_HARNESSES_DIR and ~/.config/agents/harnesses.d)" >&2
 	exit 1
 fi
 
@@ -80,7 +80,7 @@ if [ "${SANDBOX_OK:-0}" != "1" ]; then
 fi
 
 DIR="$1"
-RAW_NAME="${2:-$(claude-random-name 2>/dev/null || echo "$HARNESS-$(date +%s)")}"
+RAW_NAME="${2:-$(agent-random-name 2>/dev/null || echo "$HARNESS-$(date +%s)")}"
 NAME="[$HN][$HARNESS] $RAW_NAME"
 PROMPT="$3"
 

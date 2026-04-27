@@ -7,7 +7,7 @@
 #   -n <lines> extends capture upward into tmux scrollback by that many lines.
 set -e
 
-SESSION="${REMOTE_CLAUDE_SESSION:-main}"
+SESSION="${AGENT_SESSION:-main}"
 LINES=""
 HN="$(uname -n)"
 HN="${HN%%.*}"

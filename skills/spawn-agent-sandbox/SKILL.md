@@ -5,7 +5,7 @@ description: Spawn an LLM-CLI harness instance confined to a single directory vi
 
 # spawn-agent-sandbox
 
-Sandboxed counterpart to `spawn-agent`. Same window-naming convention (`[<host>][<harness>] <name>`); same `--rc` / `--yolo` flag semantics; same harness selector. The harness must declare `SANDBOX_OK=1` in `harnesses.conf` — at Phase 1, only `claude` qualifies.
+Sandboxed counterpart to `spawn-agent`. Same window-naming convention (`[<host>][<harness>] <name>`); same `--rc` / `--yolo` flag semantics; same harness selector. The harness must declare `SANDBOX_OK=1` in its `harnesses.d/<harness>.conf` — at Phase 1, only `claude` qualifies.
 
 ## How to spawn
 

@@ -5,7 +5,7 @@ description: Spawn a new LLM-CLI harness instance (Claude Code, Codex CLI, Gemin
 
 # spawn-agent
 
-The persistent tmux session `main` is managed by the `claude-tmux.service` user unit. Each spawned agent runs in its own named window inside that session, decorated as `[<host>][<harness>] <name>`. Claude Code spawns get `--rc "<name>"` so Remote Control is on from the start, making them reachable from the Claude mobile app.
+The persistent tmux session `main` is managed by the `agent-tmux.service` user unit. Each spawned agent runs in its own named window inside that session, decorated as `[<host>][<harness>] <name>`. Claude Code spawns get `--rc "<name>"` so Remote Control is on from the start, making them reachable from the Claude mobile app.
 
 ## How to spawn
 
@@ -19,14 +19,14 @@ Positional args are all optional but order-dependent. The harness defaults to `c
 
 ## Picking a harness
 
-`--harness=<name>` selects which CLI to launch. The current registry lives in `~/.config/remote-claude/harnesses.conf`:
+`--harness=<name>` selects which CLI to launch. The current registry lives in `~/.config/agents/harnesses.d/`, one file per harness:
 
 - `claude` — Claude Code (Anthropic). The default. Mobile-app reachable via `--rc`. Sandbox-compatible.
 - `codex`, `gemini`, `opencode` — registered for dispatch but adapter not yet implemented as of Phase 1. Spawning these will refuse with a clear error pointing at what's missing (paste/idle behavior verification). Phase 2 wires per-harness adapters; until then, only `claude` is operational.
 
 ## Flags (per-call overrides of config defaults)
 
-Defaults for `--rc` and `--yolo` come from `~/.config/remote-claude/config.env` (`REMOTE_CONTROL`, `SKIP_PERMISSIONS`); both on if file missing. Per-harness behavior (does this harness *support* `--rc`? does it support skip-permissions?) comes from `harnesses.conf` — flags that don't apply to the chosen harness are silently dropped.
+Defaults for `--rc` and `--yolo` come from `~/.config/agents/config.env` (`REMOTE_CONTROL`, `SKIP_PERMISSIONS`); both on if file missing. Per-harness behavior (does this harness *support* `--rc`? does it support skip-permissions?) comes from `harnesses.d/<harness>.conf` — flags that don't apply to the chosen harness are silently dropped.
 
 - `--rc` / `--no-rc` — force Remote Control on/off. `--no-rc` keeps the spawn off the mobile session list.
 - `--yolo` / `--safe` — `--yolo` forces auto-approve-all-tool-calls on; `--safe` forces it off (per-tool prompts).

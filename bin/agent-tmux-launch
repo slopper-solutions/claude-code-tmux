@@ -1,18 +1,19 @@
 #!/bin/sh
-# Launch the persistent `main` tmux session running Claude. Decorates the
-# window/RC name with the short hostname so sessions from multiple VPS hosts
-# stay distinguishable in the Claude mobile app.
+# Launch the persistent `main` tmux session running the bootstrap agent
+# (Claude Code in Phase 1). Decorates the window/RC name with the short
+# hostname so sessions from multiple VPS hosts stay distinguishable in the
+# Claude mobile app.
 #
-# Invoked by claude-tmux.service. Kept as a standalone script (rather than an
+# Invoked by agent-tmux.service. Kept as a standalone script (rather than an
 # inline sh -c in the unit) to avoid systemd's specifier/escaping rules
 # clashing with shell parameter expansion like ${HN%%.*}.
 #
-# Reads ~/.config/remote-claude/config.env if present. Defaults keep existing
+# Reads ~/.config/agents/config.env if present. Defaults keep existing
 # behaviour (both flags on) so upgrading without a config file is a no-op.
 set -e
 
 CLAUDE_BIN="$HOME/.local/bin/claude"
-CONFIG_FILE="$HOME/.config/remote-claude/config.env"
+CONFIG_FILE="$HOME/.config/agents/config.env"
 
 REMOTE_CONTROL=1
 SKIP_PERMISSIONS=1

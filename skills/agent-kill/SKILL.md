@@ -18,7 +18,7 @@ agent-kill <window>
 
 ## Refuses
 
-Any window whose slug is `main`. Use `systemctl --user stop claude-tmux` if you really want the persistent session down.
+Any window whose slug is `main`. Use `systemctl --user stop agent-tmux` if you really want the persistent session down.
 
 ## Typical flow
 

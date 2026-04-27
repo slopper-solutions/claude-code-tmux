@@ -21,19 +21,26 @@ into a slop system that you can prompt and vibe your tokens off. Amazing.
 Harnesses
 ---------
 
-The helpers are harness-neutral as of the `agent-*` rename. The harness map at
-`~/.config/remote-claude/harnesses.conf` registers Claude Code, Codex CLI,
-Gemini CLI, and OpenCode. Phase 1 wires Claude Code (`STATUS=stable`) only;
-the others are `STATUS=stub` — registered for dispatch but `agent-spawn` will
-refuse them until per-harness paste/idle adapters are written. Skills install
-into each harness's user-level skills directory at setup time, conditional on
-the relevant binary being on PATH.
+The helpers are harness-neutral. The harness map at `~/.config/agents/harnesses.d/`
+holds one file per registered harness — Claude Code, Codex CLI, Gemini CLI,
+and OpenCode ship out of the box. Phase 1 wires Claude Code (`STATUS=stable`)
+only; the others are `STATUS=stub` — registered for dispatch but `agent-spawn`
+will refuse them until per-harness paste/idle adapters are written. Skills
+install into each harness's user-level skills directory at setup time,
+conditional on the relevant binary being on PATH.
 
 Migration note
 --------------
 
+This release renamed `claude-tmux` → `agent-tmux` (systemd unit, config dir,
+launcher script). `setup.sh` handles the upgrade automatically: it stops and
+removes the old `claude-tmux.service`, copies `~/.config/remote-claude/` to
+`~/.config/agents/`, and clears any dangling symlinks. The original config
+dir is left in place for safety; remove it manually with `rm -rf
+~/.config/remote-claude/` once you're satisfied the new install works.
+
 Window naming changed from `[<host>] <slug>` to `[<host>][<harness>] <slug>`.
-After upgrading, the next `systemctl --user restart claude-tmux` brings up the
+After upgrading, the next `systemctl --user restart agent-tmux` brings up the
 main window as `[<host>][claude] main`. Existing `[<host>] <slug>` windows
 from a long-running session keep working — `agent-list`, `agent-talk`,
 `agent-peek`, `agent-kill` all accept both forms.

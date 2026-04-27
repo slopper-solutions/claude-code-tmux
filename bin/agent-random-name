@@ -1,8 +1,8 @@
 #!/bin/sh
-# claude-random-name: print a random 3-word hyphenated name, what3words-style.
-# Used as the default name for spawned Claudes when the caller doesn't pass
+# agent-random-name: print a random 3-word hyphenated name, what3words-style.
+# Used as the default name for spawned agents when the caller doesn't pass
 # one. ~57 * ~57 * ~60 ≈ 195k combinations — collisions are negligible in
-# practice for the handful of Claudes a user runs concurrently.
+# practice for the handful of agents a user runs concurrently.
 set -e
 
 ADJECTIVES="brave calm eager fancy gentle happy jolly kind lucky merry nimble proud quick rapid silly swift tiny wise zany bold cozy crisp dapper fluffy hazy icy jumpy keen lively mellow noble plucky quirky spry sturdy tidy vivid witty bright chatty dainty fiery frosty gleeful humble jazzy lofty nifty peppy quaint rowdy saucy stout terse vast zesty cheery dusky eerie sunny"

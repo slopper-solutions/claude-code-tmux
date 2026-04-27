@@ -17,7 +17,7 @@ if [ $# -lt 2 ]; then
 	exit 2
 fi
 
-SESSION="${REMOTE_CLAUDE_SESSION:-main}"
+SESSION="${AGENT_SESSION:-main}"
 WIN="$1"
 shift
 

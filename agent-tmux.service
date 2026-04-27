@@ -1,12 +1,12 @@
 [Unit]
-Description=Persistent tmux session running Claude Code
+Description=Persistent tmux session running the bootstrap agent (Claude Code by default)
 After=default.target
 
 [Service]
 Type=forking
 Environment=PATH=%h/.local/bin:%h/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
-EnvironmentFile=-%h/.config/remote-claude/config.env
-ExecStart=%h/.local/bin/claude-tmux-launch
+EnvironmentFile=-%h/.config/agents/config.env
+ExecStart=%h/.local/bin/agent-tmux-launch
 ExecStop=/usr/bin/tmux kill-session -t main
 Restart=on-failure
 RestartSec=5
