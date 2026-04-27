@@ -10,7 +10,7 @@
 #             or bare slugs without bracket prefix
 set -e
 
-SESSION="main"
+SESSION="${REMOTE_CLAUDE_SESSION:-main}"
 
 if ! tmux has-session -t "$SESSION" 2>/dev/null; then
 	echo "no tmux session '$SESSION' running" >&2

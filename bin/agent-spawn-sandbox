@@ -10,7 +10,7 @@
 # SANDBOX_OK=1 and STATUS=stable are accepted.
 set -e
 
-SESSION="main"
+SESSION="${REMOTE_CLAUDE_SESSION:-main}"
 CONFIG_FILE="$HOME/.config/remote-claude/config.env"
 HN="$(uname -n)"
 HN="${HN%%.*}"

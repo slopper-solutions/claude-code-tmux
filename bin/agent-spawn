@@ -13,7 +13,7 @@
 #   ~/.config/remote-claude/harnesses.conf
 set -e
 
-SESSION="main"
+SESSION="${REMOTE_CLAUDE_SESSION:-main}"
 CONFIG_FILE="$HOME/.config/remote-claude/config.env"
 HN="$(uname -n)"
 HN="${HN%%.*}"
