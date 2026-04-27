@@ -6,8 +6,8 @@
 #                            <dir> [<name>] [<prompt>]
 #
 # Defaults: harness=claude, --rc/--yolo from ~/.config/remote-claude/config.env.
-# Per-harness behavior comes from harnesses.conf — only harnesses with
-# SANDBOX_OK=1 and STATUS=stable are accepted.
+# Per-harness behavior comes from harnesses.d/<harness>.conf — only harnesses
+# with SANDBOX_OK=1 and STATUS=stable are accepted.
 set -e
 
 SESSION="${REMOTE_CLAUDE_SESSION:-main}"
@@ -16,15 +16,14 @@ HN="$(uname -n)"
 HN="${HN%%.*}"
 [ -n "$HN" ] || HN="host"
 
-HARNESSES_CONF=""
-for cand in "$REMOTE_CLAUDE_HARNESSES_CONF" "$HOME/.config/remote-claude/harnesses.conf"; do
-	[ -n "$cand" ] && [ -f "$cand" ] && { HARNESSES_CONF="$cand"; break; }
+HARNESSES_DIR=""
+for cand in "$REMOTE_CLAUDE_HARNESSES_DIR" "$HOME/.config/remote-claude/harnesses.d"; do
+	[ -n "$cand" ] && [ -d "$cand" ] && { HARNESSES_DIR="$cand"; break; }
 done
-if [ -z "$HARNESSES_CONF" ]; then
-	echo "agent-spawn-sandbox: harnesses.conf not found" >&2
+if [ -z "$HARNESSES_DIR" ]; then
+	echo "agent-spawn-sandbox: harnesses.d not found (looked at \$REMOTE_CLAUDE_HARNESSES_DIR and ~/.config/remote-claude/harnesses.d)" >&2
 	exit 1
 fi
-. "$HARNESSES_CONF"
 
 REMOTE_CONTROL=1
 SKIP_PERMISSIONS=1
@@ -51,17 +50,22 @@ if [ $# -lt 1 ]; then
 	exit 2
 fi
 
-H_UPPER=$(echo "$HARNESS" | tr a-z A-Z)
-eval "STATUS=\${HARNESS_${H_UPPER}_STATUS:-}"
-eval "BIN=\${HARNESS_${H_UPPER}_BINARY:-}"
-eval "RC_FLAG=\${HARNESS_${H_UPPER}_RC_FLAG:-}"
-eval "RC_TAKES_NAME=\${HARNESS_${H_UPPER}_RC_TAKES_NAME:-0}"
-eval "YOLO_FLAG=\${HARNESS_${H_UPPER}_YOLO_FLAG:-}"
-eval "SANDBOX_OK=\${HARNESS_${H_UPPER}_SANDBOX_OK:-0}"
-
-if [ -z "$STATUS" ] || [ -z "$BIN" ]; then
-	echo "agent-spawn-sandbox: unknown harness '$HARNESS'" >&2
-	echo "  registered: ${HARNESSES_REGISTERED:-(none)}" >&2
+HARNESS_FILE="$HARNESSES_DIR/$HARNESS.conf"
+if [ ! -f "$HARNESS_FILE" ]; then
+	echo "agent-spawn-sandbox: unknown harness '$HARNESS' (no $HARNESS_FILE)" >&2
+	registered=""
+	for f in "$HARNESSES_DIR"/*.conf; do
+		[ -f "$f" ] || continue
+		n=${f##*/}; n=${n%.conf}
+		registered="$registered $n"
+	done
+	echo "  registered:${registered:- (none)}" >&2
+	exit 2
+fi
+unset BINARY RC_FLAG RC_TAKES_NAME YOLO_FLAG SANDBOX_OK STATUS
+. "$HARNESS_FILE"
+if [ -z "${STATUS:-}" ] || [ -z "${BINARY:-}" ]; then
+	echo "agent-spawn-sandbox: $HARNESS_FILE missing required field BINARY or STATUS" >&2
 	exit 2
 fi
 if [ "$STATUS" != "stable" ]; then
@@ -69,7 +73,7 @@ if [ "$STATUS" != "stable" ]; then
 	echo "  Adapter not yet wired — refusing to spawn." >&2
 	exit 1
 fi
-if [ "$SANDBOX_OK" != "1" ]; then
+if [ "${SANDBOX_OK:-0}" != "1" ]; then
 	echo "agent-spawn-sandbox: harness '$HARNESS' is marked SANDBOX_OK=0." >&2
 	echo "  Use agent-spawn (unsandboxed) or wire bwrap support and flip the flag." >&2
 	exit 1
@@ -85,12 +89,12 @@ if ! command -v bwrap >/dev/null 2>&1; then
 	exit 1
 fi
 
-if [ -x "$HOME/.local/bin/$BIN" ]; then
-	BIN_PATH="$HOME/.local/bin/$BIN"
-elif command -v "$BIN" >/dev/null 2>&1; then
-	BIN_PATH="$(command -v "$BIN")"
+if [ -x "$HOME/.local/bin/$BINARY" ]; then
+	BIN_PATH="$HOME/.local/bin/$BINARY"
+elif command -v "$BINARY" >/dev/null 2>&1; then
+	BIN_PATH="$(command -v "$BINARY")"
 else
-	echo "agent-spawn-sandbox: binary '$BIN' for harness '$HARNESS' not found on PATH" >&2
+	echo "agent-spawn-sandbox: binary '$BINARY' for harness '$HARNESS' not found on PATH" >&2
 	exit 1
 fi
 

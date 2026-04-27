@@ -264,17 +264,24 @@ EOF
 	echo "  installed: $CONFIG_DST (REMOTE_CONTROL=$RC_VAL, SKIP_PERMISSIONS=$SP_VAL)"
 fi
 
-step "Installing harness map (first run only)"
-# harnesses.conf maps harness names to their binaries, flags, and adapter
-# status. agent-* dispatchers source it. Like config.env, treated as a
-# user-edited file: install once, leave alone on re-run.
-HARNESSES_DST="$CONFIG_DIR/harnesses.conf"
-if [ -e "$HARNESSES_DST" ]; then
-	echo "  already present: $HARNESSES_DST (leaving user edits alone)"
-else
-	cp "$DIR/harnesses.conf" "$HARNESSES_DST"
-	echo "  installed: $HARNESSES_DST"
-fi
+step "Installing harness map (per-harness files, first run only)"
+# harnesses.d/<name>.conf maps each harness to its binary, flags, and adapter
+# status. agent-* dispatchers source the file matching the requested harness.
+# Each file is installed once and left alone on re-run; new harness files
+# added in later releases are picked up automatically.
+HARNESSES_DST="$CONFIG_DIR/harnesses.d"
+mkdir -p "$HARNESSES_DST"
+for src in "$DIR/harnesses.d"/*.conf; do
+	[ -f "$src" ] || continue
+	name=${src##*/}
+	dst="$HARNESSES_DST/$name"
+	if [ -e "$dst" ]; then
+		echo "  already present: $dst (leaving user edits alone)"
+	else
+		cp "$src" "$dst"
+		echo "  installed: $dst"
+	fi
+done
 
 step "Installing SSH auto-attach into login rc"
 AUTOATTACH_SRC="$DIR/ssh-autoattach.sh"
@@ -341,10 +348,10 @@ echo "    REMOTE_CONTROL=1    --rc on main session and new helpers"
 echo "    SKIP_PERMISSIONS=1  --dangerously-skip-permissions on both"
 echo "    after editing: systemctl --user restart claude-tmux  (main only)"
 echo ""
-echo "  edit harness map:     \$EDITOR $HARNESSES_DST"
+echo "  edit harness map:     \$EDITOR $HARNESSES_DST/<harness>.conf"
 echo "    Phase 1 only 'claude' is wired (STATUS=stable). codex/gemini/opencode"
-echo "    are registered as STATUS=stub — agent-spawn refuses them until"
-echo "    per-harness paste/idle adapters are written and the flag flipped."
+echo "    ship as STATUS=stub — agent-spawn refuses them until per-harness"
+echo "    paste/idle adapters are written and STATUS is flipped to stable."
 echo ""
 echo "  (these all live in ~/.local/bin — ensure that's on your PATH)"
 echo ""
