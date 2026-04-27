@@ -1,62 +1,10 @@
 #!/bin/sh
-# Spawn a helper Claude in a named window of the persistent `main` tmux
-# session. Window name is decorated as "[<hostname>] <name>" so sessions from
-# multiple hosts stay distinguishable in the Claude mobile app.
-#
-# Usage: claude-spawn [--rc|--no-rc] [--yolo|--safe] [<name>] [<prompt>]
-#
-# Defaults come from ~/.config/remote-claude/config.env (REMOTE_CONTROL=1,
-# SKIP_PERMISSIONS=1 baked in if the file is missing). Per-call flags win.
+# DEPRECATED: forwards to agent-spawn --harness=claude.
+# See bin/agent-spawn (canonical) and skills/spawn-agent/SKILL.md.
+# Will be removed in a future release. Migrate to 'agent-spawn' (claude is the
+# default harness, so flags and positional args are unchanged).
+# Note: window naming changed to [<host>][claude] <slug> — older [<host>] <slug>
+# windows from prior installs still work via the agent-* readers.
 set -e
-
-SESSION="main"
-CLAUDE_BIN="$HOME/.local/bin/claude"
-CONFIG_FILE="$HOME/.config/remote-claude/config.env"
-HN="$(uname -n)"
-HN="${HN%%.*}"
-
-REMOTE_CONTROL=1
-SKIP_PERMISSIONS=1
-[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
-
-while [ $# -gt 0 ]; do
-	case "$1" in
-		--rc)     REMOTE_CONTROL=1; shift ;;
-		--no-rc)  REMOTE_CONTROL=0; shift ;;
-		--yolo)   SKIP_PERMISSIONS=1; shift ;;
-		--safe)   SKIP_PERMISSIONS=0; shift ;;
-		--)       shift; break ;;
-		-*)       echo "claude-spawn: unknown flag: $1" >&2; exit 2 ;;
-		*)        break ;;
-	esac
-done
-
-RAW_NAME="${1:-$(claude-random-name 2>/dev/null || echo "claude-$(date +%s)")}"
-NAME="[$HN] $RAW_NAME"
-PROMPT="$2"
-
-tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
-
-set -- "$CLAUDE_BIN"
-[ "$REMOTE_CONTROL" = "1" ] && set -- "$@" --rc "$NAME"
-[ "$SKIP_PERMISSIONS" = "1" ] && set -- "$@" --dangerously-skip-permissions
-
-tmux new-window -t "$SESSION" -n "$NAME" "$@"
-
-# Auto-accept Claude Code's workspace trust dialog (no pre-trust config
-# exists — see anthropics/claude-code#29285). Harmless if not shown.
-sleep 2
-tmux send-keys -t "$SESSION:=$NAME" Enter
-
-if [ -n "$PROMPT" ]; then
-	sleep 1
-	# Claude Code's Ink-based input treats a batched text+Enter as a paste
-	# (which doesn't auto-submit). Send the text with -l (literal, no key-name
-	# interpretation inside the prompt), wait for the paste window to close,
-	# then send Enter as a separate keystroke so it's read as submit intent.
-	tmux send-keys -l -t "$SESSION:=$NAME" "$PROMPT"
-	sleep 0.3
-	tmux send-keys -t "$SESSION:=$NAME" Enter
-fi
-
-echo "$SESSION:=$NAME"
+echo "claude-spawn: DEPRECATED — use 'agent-spawn' instead." >&2
+exec agent-spawn --harness=claude "$@"

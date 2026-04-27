@@ -1,24 +1,5 @@
 #!/bin/sh
+# DEPRECATED: forwards to agent-talk. See bin/agent-talk (canonical).
 set -e
-
-if [ $# -lt 2 ]; then
-	echo "usage: claude-talk <window> <text...>" >&2
-	echo "  sends <text> + Enter to tmux window main:<window>" >&2
-	exit 2
-fi
-
-SESSION="main"
-WIN="$1"
-shift
-
-# Strip a leading '=' if the caller already included one, then always add it
-# back — window names contain '[' and ']' which tmux would otherwise treat as
-# fnmatch character classes.
-WIN="${WIN#=}"
-
-# Text and Enter sent separately: Claude Code's Ink-based input treats a
-# batched text+Enter as a paste (which doesn't auto-submit). The intervening
-# sleep lets the paste window close so the final Enter is read as submit.
-tmux send-keys -l -t "$SESSION:=$WIN" "$*"
-sleep 0.3
-tmux send-keys -t "$SESSION:=$WIN" Enter
+echo "claude-talk: DEPRECATED — use 'agent-talk' instead." >&2
+exec agent-talk "$@"

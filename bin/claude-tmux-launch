@@ -22,7 +22,10 @@ HN=$(uname -n)
 HN=${HN%%.*}
 [ -n "$HN" ] || HN="host"
 
-NAME="[$HN] main"
+# Window name follows the harness-tagged convention: [<host>][<harness>] <slug>.
+# This script bootstraps the foundational Claude Code instance, so the harness
+# tag is always 'claude'. Other harnesses get spawned later via agent-spawn.
+NAME="[$HN][claude] main"
 
 set -- "$CLAUDE_BIN"
 [ "$REMOTE_CONTROL" = "1" ] && set -- "$@" --rc "$NAME"

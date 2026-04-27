@@ -1,0 +1,144 @@
+#!/bin/sh
+# agent-spawn-sandbox: launch an LLM-CLI harness filesystem-restricted to <dir>
+# via bubblewrap. Window decorated as "[<host>][<harness>] <name>".
+#
+# Usage: agent-spawn-sandbox [--rc|--no-rc] [--yolo|--safe] [--harness=<name>]
+#                            <dir> [<name>] [<prompt>]
+#
+# Defaults: harness=claude, --rc/--yolo from ~/.config/remote-claude/config.env.
+# Per-harness behavior comes from harnesses.conf — only harnesses with
+# SANDBOX_OK=1 and STATUS=stable are accepted.
+set -e
+
+SESSION="main"
+CONFIG_FILE="$HOME/.config/remote-claude/config.env"
+HN="$(uname -n)"
+HN="${HN%%.*}"
+[ -n "$HN" ] || HN="host"
+
+HARNESSES_CONF=""
+for cand in "$REMOTE_CLAUDE_HARNESSES_CONF" "$HOME/.config/remote-claude/harnesses.conf"; do
+	[ -n "$cand" ] && [ -f "$cand" ] && { HARNESSES_CONF="$cand"; break; }
+done
+if [ -z "$HARNESSES_CONF" ]; then
+	echo "agent-spawn-sandbox: harnesses.conf not found" >&2
+	exit 1
+fi
+. "$HARNESSES_CONF"
+
+REMOTE_CONTROL=1
+SKIP_PERMISSIONS=1
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+HARNESS=claude
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--rc)         REMOTE_CONTROL=1; shift ;;
+		--no-rc)      REMOTE_CONTROL=0; shift ;;
+		--yolo)       SKIP_PERMISSIONS=1; shift ;;
+		--safe)       SKIP_PERMISSIONS=0; shift ;;
+		--harness=*)  HARNESS="${1#--harness=}"; shift ;;
+		--harness)    HARNESS="$2"; shift 2 ;;
+		--)           shift; break ;;
+		-*)           echo "agent-spawn-sandbox: unknown flag: $1" >&2; exit 2 ;;
+		*)            break ;;
+	esac
+done
+
+if [ $# -lt 1 ]; then
+	echo "usage: agent-spawn-sandbox [--rc|--no-rc] [--yolo|--safe] [--harness=<name>] <dir> [<name>] [<prompt>]" >&2
+	exit 2
+fi
+
+H_UPPER=$(echo "$HARNESS" | tr a-z A-Z)
+eval "STATUS=\${HARNESS_${H_UPPER}_STATUS:-}"
+eval "BIN=\${HARNESS_${H_UPPER}_BINARY:-}"
+eval "RC_FLAG=\${HARNESS_${H_UPPER}_RC_FLAG:-}"
+eval "RC_TAKES_NAME=\${HARNESS_${H_UPPER}_RC_TAKES_NAME:-0}"
+eval "YOLO_FLAG=\${HARNESS_${H_UPPER}_YOLO_FLAG:-}"
+eval "SANDBOX_OK=\${HARNESS_${H_UPPER}_SANDBOX_OK:-0}"
+
+if [ -z "$STATUS" ] || [ -z "$BIN" ]; then
+	echo "agent-spawn-sandbox: unknown harness '$HARNESS'" >&2
+	echo "  registered: ${HARNESSES_REGISTERED:-(none)}" >&2
+	exit 2
+fi
+if [ "$STATUS" != "stable" ]; then
+	echo "agent-spawn-sandbox: harness '$HARNESS' is registered as '$STATUS'." >&2
+	echo "  Adapter not yet wired — refusing to spawn." >&2
+	exit 1
+fi
+if [ "$SANDBOX_OK" != "1" ]; then
+	echo "agent-spawn-sandbox: harness '$HARNESS' is marked SANDBOX_OK=0." >&2
+	echo "  Use agent-spawn (unsandboxed) or wire bwrap support and flip the flag." >&2
+	exit 1
+fi
+
+DIR="$1"
+RAW_NAME="${2:-$(claude-random-name 2>/dev/null || echo "$HARNESS-$(date +%s)")}"
+NAME="[$HN][$HARNESS] $RAW_NAME"
+PROMPT="$3"
+
+if ! command -v bwrap >/dev/null 2>&1; then
+	echo "bwrap not installed. On Debian/Ubuntu: sudo apt-get install bubblewrap" >&2
+	exit 1
+fi
+
+if [ -x "$HOME/.local/bin/$BIN" ]; then
+	BIN_PATH="$HOME/.local/bin/$BIN"
+elif command -v "$BIN" >/dev/null 2>&1; then
+	BIN_PATH="$(command -v "$BIN")"
+else
+	echo "agent-spawn-sandbox: binary '$BIN' for harness '$HARNESS' not found on PATH" >&2
+	exit 1
+fi
+
+mkdir -p "$DIR"
+DIR="$(cd "$DIR" && pwd)"
+
+mkdir -p "$HOME/.config/claude" "$HOME/.claude" "$HOME/.cache/claude"
+
+# Build claude-invocation portion. Per-call flags are interpolated in; $NAME is
+# single-quoted so spaces survive the sh -c handoff inside tmux new-window.
+RUN_PART="'$BIN_PATH'"
+if [ "$REMOTE_CONTROL" = "1" ] && [ -n "$RC_FLAG" ]; then
+	if [ "$RC_TAKES_NAME" = "1" ]; then
+		RUN_PART="$RUN_PART $RC_FLAG '$NAME'"
+	else
+		RUN_PART="$RUN_PART $RC_FLAG"
+	fi
+fi
+[ "$SKIP_PERMISSIONS" = "1" ] && [ -n "$YOLO_FLAG" ] && RUN_PART="$RUN_PART $YOLO_FLAG"
+
+# Sandbox layout: / read-only, fresh /tmp/dev/proc, $DIR + Claude state dirs
+# read-write. Network is shared so --rc / OAuth still work.
+CMD="bwrap \
+	--ro-bind / / \
+	--tmpfs /tmp \
+	--dev /dev \
+	--proc /proc \
+	--bind '$HOME/.config/claude' '$HOME/.config/claude' \
+	--bind '$HOME/.claude' '$HOME/.claude' \
+	--bind-try '$HOME/.cache/claude' '$HOME/.cache/claude' \
+	--bind '$DIR' '$DIR' \
+	--chdir '$DIR' \
+	--die-with-parent \
+	$RUN_PART"
+
+tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
+tmux new-window -t "$SESSION" -n "$NAME" "$CMD"
+
+# Auto-accept Claude Code's workspace trust dialog. Sandbox adds latency so
+# wait slightly longer. Harmless on harnesses that don't show one.
+sleep 3
+tmux send-keys -t "$SESSION:=$NAME" Enter
+
+if [ -n "$PROMPT" ]; then
+	sleep 1
+	tmux send-keys -l -t "$SESSION:=$NAME" "$PROMPT"
+	sleep 0.3
+	tmux send-keys -t "$SESSION:=$NAME" Enter
+fi
+
+echo "$SESSION:=$NAME"

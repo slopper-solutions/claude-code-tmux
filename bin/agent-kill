@@ -1,0 +1,47 @@
+#!/bin/sh
+# agent-kill: close an LLM window inside the persistent `main` tmux session.
+# Refuses to kill any window whose slug is "main" — the foundational session
+# window, regardless of which harness owns it.
+set -e
+
+if [ $# -lt 1 ]; then
+	echo "usage: agent-kill <window>" >&2
+	echo "  Closes tmux window main:<window>. Refuses any 'main' slug." >&2
+	echo "  Bare names are decorated to '[<host>][claude] <slug>'. Pass the full" >&2
+	echo "  '[host][harness] slug' form for foreign hosts or non-claude harnesses." >&2
+	exit 2
+fi
+
+SESSION="main"
+WIN="$1"
+WIN="${WIN#=}"
+
+HN=$(uname -n)
+HN=${HN%%.*}
+[ -n "$HN" ] || HN="host"
+
+case "$WIN" in
+	\[*\]\[*\]\ *)
+		# new form
+		rest=${WIN#\[*\]}
+		slug=${rest#\[*\] }
+		;;
+	\[*\]\ *)
+		# legacy form
+		slug=${WIN#\[*\] }
+		;;
+	*)
+		# bare slug → assume local claude
+		slug=$WIN
+		WIN="[$HN][claude] $WIN"
+		;;
+esac
+
+if [ "$slug" = "main" ]; then
+	echo "refusing to kill the main session window ($WIN)" >&2
+	echo "use 'systemctl --user stop claude-tmux' if you really want that down" >&2
+	exit 1
+fi
+
+tmux kill-window -t "$SESSION:=$WIN"
+echo "killed: $SESSION:$WIN"

@@ -143,18 +143,60 @@ fi
 
 step "Installing helper scripts into ~/.local/bin"
 mkdir -p "$HOME/.local/bin"
-for s in claude-spawn claude-spawn-sandbox claude-talk claude-kill claude-list claude-peek claude-random-name claude-tmux-launch; do
+# agent-* are the canonical harness-neutral entry points. claude-* are kept as
+# thin deprecated forwarders for backwards compatibility — they still install,
+# print a deprecation warning, and exec the agent-* equivalent.
+for s in \
+	agent-spawn agent-spawn-sandbox agent-talk agent-peek agent-list agent-kill \
+	claude-spawn claude-spawn-sandbox claude-talk claude-peek claude-list claude-kill \
+	claude-random-name claude-tmux-launch \
+; do
 	link "$DIR/bin/$s" "$HOME/.local/bin/$s"
 done
 
-step "Installing skill symlinks"
+step "Installing skills into ~/.claude/skills (canonical location)"
+# Both new agent-* skills and the deprecated claude-* skills install here.
+# Other harnesses' skill dirs are handled below (conditional on detection).
 mkdir -p "$HOME/.claude/skills"
-link "$DIR/skills/spawn-claude" "$HOME/.claude/skills/spawn-claude"
-link "$DIR/skills/claude-talk" "$HOME/.claude/skills/claude-talk"
-link "$DIR/skills/spawn-claude-sandbox" "$HOME/.claude/skills/spawn-claude-sandbox"
-link "$DIR/skills/kill-claude" "$HOME/.claude/skills/kill-claude"
-link "$DIR/skills/list-claudes" "$HOME/.claude/skills/list-claudes"
-link "$DIR/skills/peek-claude" "$HOME/.claude/skills/peek-claude"
+SKILLS="\
+	spawn-agent spawn-agent-sandbox agent-talk agent-peek agent-list agent-kill \
+	spawn-claude spawn-claude-sandbox claude-talk peek-claude list-claudes kill-claude \
+"
+for sk in $SKILLS; do
+	link "$DIR/skills/$sk" "$HOME/.claude/skills/$sk"
+done
+
+step "Installing skills into other harness dirs (conditional on harness present)"
+# Each harness has its own user-level skills directory. Detection: binary on
+# PATH. If detected, symlink the whole catalog there. ~/.agents/skills/ is the
+# emerging cross-harness fallback (OpenCode reads it; others may converge) —
+# install unconditionally so future-installed harnesses pick it up.
+install_skills_to() {
+	dest_dir="$1"
+	mkdir -p "$dest_dir"
+	for sk in $SKILLS; do
+		link "$DIR/skills/$sk" "$dest_dir/$sk"
+	done
+	echo "  installed skills → $dest_dir"
+}
+# Cross-harness fallback path — always install.
+install_skills_to "$HOME/.agents/skills"
+# Per-harness paths — only if the binary is on PATH.
+if command -v codex >/dev/null 2>&1; then
+	install_skills_to "$HOME/.codex/skills"
+else
+	echo "  codex not on PATH — skipping ~/.codex/skills"
+fi
+if command -v gemini >/dev/null 2>&1; then
+	install_skills_to "$HOME/.gemini/skills"
+else
+	echo "  gemini not on PATH — skipping ~/.gemini/skills"
+fi
+if command -v opencode >/dev/null 2>&1; then
+	install_skills_to "$HOME/.config/opencode/skills"
+else
+	echo "  opencode not on PATH — skipping ~/.config/opencode/skills"
+fi
 
 step "Installing systemd user unit"
 mkdir -p "$HOME/.config/systemd/user"
@@ -222,6 +264,18 @@ EOF
 	echo "  installed: $CONFIG_DST (REMOTE_CONTROL=$RC_VAL, SKIP_PERMISSIONS=$SP_VAL)"
 fi
 
+step "Installing harness map (first run only)"
+# harnesses.conf maps harness names to their binaries, flags, and adapter
+# status. agent-* dispatchers source it. Like config.env, treated as a
+# user-edited file: install once, leave alone on re-run.
+HARNESSES_DST="$CONFIG_DIR/harnesses.conf"
+if [ -e "$HARNESSES_DST" ]; then
+	echo "  already present: $HARNESSES_DST (leaving user edits alone)"
+else
+	cp "$DIR/harnesses.conf" "$HARNESSES_DST"
+	echo "  installed: $HARNESSES_DST"
+fi
+
 step "Installing SSH auto-attach into login rc"
 AUTOATTACH_SRC="$DIR/ssh-autoattach.sh"
 SENTINEL="# claude-tmux ssh auto-attach"
@@ -272,16 +326,29 @@ echo "    bypass once:        ssh user@host bash --noprofile   (skips login rc)"
 echo "    disable for a session: ssh; then Ctrl-b d once attached"
 echo ""
 echo "  attach manually:      tmux attach -t main"
-echo "  list Claudes:         claude-list"
-echo "  spawn a helper:       claude-spawn <name> \"<optional handoff prompt>\""
-echo "  spawn (sandboxed):    claude-spawn-sandbox <dir> <name> \"<optional prompt>\""
-echo "  send to a window:     claude-talk <window> <text...>"
-echo "  peek at a window:     claude-peek <window>"
-echo "  kill a helper:        claude-kill <window>"
+echo "  list agents:          agent-list"
+echo "  spawn a helper:       agent-spawn [--harness=<name>] <name> \"<optional prompt>\""
+echo "  spawn (sandboxed):    agent-spawn-sandbox [--harness=<name>] <dir> <name> \"<optional prompt>\""
+echo "  send to a window:     agent-talk <window> <text...>"
+echo "  peek at a window:     agent-peek <window>"
+echo "  kill a helper:        agent-kill <window>"
+echo ""
+echo "  (claude-* commands still work as deprecated forwarders to agent-* —"
+echo "   they print a warning. Migrate when convenient.)"
 echo ""
 echo "  edit defaults:        \$EDITOR $CONFIG_DST"
 echo "    REMOTE_CONTROL=1    --rc on main session and new helpers"
 echo "    SKIP_PERMISSIONS=1  --dangerously-skip-permissions on both"
 echo "    after editing: systemctl --user restart claude-tmux  (main only)"
 echo ""
+echo "  edit harness map:     \$EDITOR $HARNESSES_DST"
+echo "    Phase 1 only 'claude' is wired (STATUS=stable). codex/gemini/opencode"
+echo "    are registered as STATUS=stub — agent-spawn refuses them until"
+echo "    per-harness paste/idle adapters are written and the flag flipped."
+echo ""
 echo "  (these all live in ~/.local/bin — ensure that's on your PATH)"
+echo ""
+echo "  NOTE: window naming is now '[<host>][<harness>] <slug>'. After this"
+echo "  install, the next 'systemctl --user restart claude-tmux' brings up the"
+echo "  main window as '[<host>][claude] main' instead of the legacy"
+echo "  '[<host>] main'. agent-* readers handle both forms during migration."

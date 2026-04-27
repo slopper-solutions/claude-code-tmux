@@ -1,0 +1,114 @@
+#!/bin/sh
+# agent-spawn: launch an LLM-CLI harness in a named tmux window inside the
+# persistent `main` session. Window decorated as "[<host>][<harness>] <name>"
+# so windows from multiple hosts and harnesses stay distinguishable.
+#
+# Usage: agent-spawn [--rc|--no-rc] [--yolo|--safe] [--harness=<name>] [<name>] [<prompt>]
+#
+# Defaults: harness=claude, --rc/--yolo from ~/.config/remote-claude/config.env
+# (REMOTE_CONTROL, SKIP_PERMISSIONS); both on if file missing. Per-call flags win.
+#
+# Per-harness behavior comes from harnesses.conf, sourced from one of:
+#   $REMOTE_CLAUDE_HARNESSES_CONF (override), or
+#   ~/.config/remote-claude/harnesses.conf
+set -e
+
+SESSION="main"
+CONFIG_FILE="$HOME/.config/remote-claude/config.env"
+HN="$(uname -n)"
+HN="${HN%%.*}"
+[ -n "$HN" ] || HN="host"
+
+HARNESSES_CONF=""
+for cand in "$REMOTE_CLAUDE_HARNESSES_CONF" "$HOME/.config/remote-claude/harnesses.conf"; do
+	[ -n "$cand" ] && [ -f "$cand" ] && { HARNESSES_CONF="$cand"; break; }
+done
+if [ -z "$HARNESSES_CONF" ]; then
+	echo "agent-spawn: harnesses.conf not found (looked at \$REMOTE_CLAUDE_HARNESSES_CONF and ~/.config/remote-claude/harnesses.conf)" >&2
+	exit 1
+fi
+. "$HARNESSES_CONF"
+
+REMOTE_CONTROL=1
+SKIP_PERMISSIONS=1
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+
+HARNESS=claude
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--rc)         REMOTE_CONTROL=1; shift ;;
+		--no-rc)      REMOTE_CONTROL=0; shift ;;
+		--yolo)       SKIP_PERMISSIONS=1; shift ;;
+		--safe)       SKIP_PERMISSIONS=0; shift ;;
+		--harness=*)  HARNESS="${1#--harness=}"; shift ;;
+		--harness)    HARNESS="$2"; shift 2 ;;
+		--)           shift; break ;;
+		-*)           echo "agent-spawn: unknown flag: $1" >&2; exit 2 ;;
+		*)            break ;;
+	esac
+done
+
+H_UPPER=$(echo "$HARNESS" | tr a-z A-Z)
+eval "STATUS=\${HARNESS_${H_UPPER}_STATUS:-}"
+eval "BIN=\${HARNESS_${H_UPPER}_BINARY:-}"
+eval "RC_FLAG=\${HARNESS_${H_UPPER}_RC_FLAG:-}"
+eval "RC_TAKES_NAME=\${HARNESS_${H_UPPER}_RC_TAKES_NAME:-0}"
+eval "YOLO_FLAG=\${HARNESS_${H_UPPER}_YOLO_FLAG:-}"
+
+if [ -z "$STATUS" ] || [ -z "$BIN" ]; then
+	echo "agent-spawn: unknown harness '$HARNESS'" >&2
+	echo "  registered: ${HARNESSES_REGISTERED:-(none)}" >&2
+	exit 2
+fi
+if [ "$STATUS" != "stable" ]; then
+	echo "agent-spawn: harness '$HARNESS' is registered as '$STATUS'." >&2
+	echo "  Adapter for paste/idle behavior is not wired yet — refusing to spawn." >&2
+	echo "  See harnesses.conf for what's needed to flip it to 'stable'." >&2
+	exit 1
+fi
+
+if [ -x "$HOME/.local/bin/$BIN" ]; then
+	BIN_PATH="$HOME/.local/bin/$BIN"
+elif command -v "$BIN" >/dev/null 2>&1; then
+	BIN_PATH="$(command -v "$BIN")"
+else
+	echo "agent-spawn: binary '$BIN' for harness '$HARNESS' not found on PATH" >&2
+	exit 1
+fi
+
+RAW_NAME="${1:-$(claude-random-name 2>/dev/null || echo "$HARNESS-$(date +%s)")}"
+NAME="[$HN][$HARNESS] $RAW_NAME"
+PROMPT="$2"
+
+tmux has-session -t "$SESSION" 2>/dev/null || tmux new-session -d -s "$SESSION"
+
+set -- "$BIN_PATH"
+if [ "$REMOTE_CONTROL" = "1" ] && [ -n "$RC_FLAG" ]; then
+	if [ "$RC_TAKES_NAME" = "1" ]; then
+		set -- "$@" "$RC_FLAG" "$NAME"
+	else
+		set -- "$@" "$RC_FLAG"
+	fi
+fi
+[ "$SKIP_PERMISSIONS" = "1" ] && [ -n "$YOLO_FLAG" ] && set -- "$@" "$YOLO_FLAG"
+
+tmux new-window -t "$SESSION" -n "$NAME" "$@"
+
+# Auto-accept Claude Code's workspace trust dialog. No-op on harnesses that
+# don't show one (Enter at an empty chat prompt).
+sleep 2
+tmux send-keys -t "$SESSION:=$NAME" Enter
+
+if [ -n "$PROMPT" ]; then
+	sleep 1
+	# Text and Enter sent separately: Claude Code's Ink TUI treats batched
+	# text+Enter as a paste (which doesn't auto-submit). The intervening
+	# sleep lets the paste window close so Enter is read as submit. This is
+	# Claude-specific behavior; Phase 2 per-harness adapters will dispatch.
+	tmux send-keys -l -t "$SESSION:=$NAME" "$PROMPT"
+	sleep 0.3
+	tmux send-keys -t "$SESSION:=$NAME" Enter
+fi
+
+echo "$SESSION:=$NAME"

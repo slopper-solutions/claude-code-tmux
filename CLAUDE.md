@@ -8,19 +8,22 @@ Load-bearing. When a proposed change doesn't fit, the right answer is usually "d
 
 - **Shell-only, POSIX `sh`.** No bash-isms (`[[`, `<<<`, arrays, `$RANDOM`-dependence). If a feature requires bash, Python, or Node, that's a signal the feature belongs in a different project.
 - **Minimalism over breadth.** The repo is small on purpose. Before adding a script, check whether the primitive already exists and a skill doc would be enough to expose it. Before adding a flag, check whether the config file would be a better home.
-- **One script, one verb.** `claude-<verb>` naming. A script that wants to do two distinct things should become two scripts.
-- **Config lives in one file.** `config.env` is strict `KEY=VALUE`, no shell expansion, because it is loaded both by systemd `EnvironmentFile=` and by shell `.` sourcing. Don't add shell syntax to it.
-- **Window names carry the hostname.** The `[<host>] <slug>` format is load-bearing — it keeps multiple VPS hosts distinguishable in the Claude mobile session list. Don't shorten, omit, or URL-encode it.
+- **One script, one verb.** Canonical naming is `agent-<verb>` (harness-neutral) — `agent-spawn`, `agent-talk`, etc. The legacy `claude-<verb>` scripts remain as deprecated forwarders. A script that wants to do two distinct things should become two scripts.
+- **Config lives in two files.** `config.env` (strict `KEY=VALUE`, no shell expansion — loaded both by systemd `EnvironmentFile=` and by shell `.` sourcing) holds runtime defaults. `harnesses.conf` (same format, prefixed `HARNESS_<NAME>_<FIELD>` keys) maps harness names to their binaries and adapter status. Don't add shell syntax to either.
+- **Window names carry the hostname *and* harness.** The `[<host>][<harness>] <slug>` format is load-bearing — it keeps multiple VPS hosts and multiple harnesses distinguishable in the mobile session list and in `agent-list` output. Don't shorten, omit, or URL-encode it. `agent-*` readers also accept legacy `[<host>] <slug>` windows from pre-rename installs (treated as harness=claude).
 - **`--rc` is the mobile primitive.** Built into Claude Code; don't reinvent the transport layer (no Discord bots, no custom sockets, no web dashboards baked into this repo).
 - **No runtime deps beyond tmux, systemd, coreutils, and optionally bwrap.** Anything else is out.
 - **Stay current with Claude Code.** This repo is a thin wrapper. When Claude Code ships a new flag, feature, or install mechanism, check whether to adopt it. When it deprecates something we use, migrate. Diverging from Claude Code's conventions is how this project rots.
 
 ## Layout
 
-- `bin/claude-*` — all helper scripts, one verb each (`claude-spawn`, `claude-spawn-sandbox`, `claude-talk`, `claude-peek`, `claude-kill`, `claude-list`, `claude-random-name`, `claude-tmux-launch`). Symlinked into `~/.local/bin/` by `setup.sh`.
-- `claude-tmux.service` — systemd user unit; invokes `bin/claude-tmux-launch` via the installed `~/.local/bin` copy.
+- `bin/agent-*` — canonical harness-neutral helpers, one verb each (`agent-spawn`, `agent-spawn-sandbox`, `agent-talk`, `agent-peek`, `agent-list`, `agent-kill`). Read `harnesses.conf` and dispatch. Symlinked into `~/.local/bin/` by `setup.sh`.
+- `bin/claude-*` — deprecated thin forwarders that print a warning and exec the matching `agent-*`. Kept for backwards compatibility; will be removed in a future release. `bin/claude-random-name` and `bin/claude-tmux-launch` are internal utilities (no agent-* equivalent yet) and stay.
+- `claude-tmux.service` — systemd user unit; invokes `bin/claude-tmux-launch`, which now produces the `[<host>][claude] main` window.
 - `config.env` — reference file documenting `REMOTE_CONTROL` and `SKIP_PERMISSIONS`. The actual runtime config is written to `~/.config/remote-claude/config.env` interactively on first install.
-- `skills/<name>/SKILL.md` — how a live Claude discovers each helper.
+- `harnesses.conf` — reference file mapping harness names → `{ binary, RC flag, YOLO flag, sandbox-ok, status }`. Sourced by `agent-*` dispatchers. Per-call status `stable` means an adapter is wired and tested; `stub` means registered but the paste/idle behavior isn't verified yet, so `agent-spawn` refuses. Phase 1 ships only `claude` as `stable`.
+- `skills/spawn-agent/`, `skills/agent-talk/`, ... — canonical harness-neutral skill catalog. Skills are installed by `setup.sh` into `~/.claude/skills/` always; into `~/.agents/skills/` always (cross-harness fallback path); and into `~/.codex/skills/`, `~/.gemini/skills/`, `~/.config/opencode/skills/` conditionally on the relevant binary being on PATH at install time.
+- `skills/spawn-claude/`, `skills/claude-talk/`, ... — deprecated skill stubs that point an LLM reader at the new neutral skill names. Kept so existing references still resolve.
 - `ssh-autoattach.sh` — login-shell snippet that drops SSH users into the main session.
 - `setup.sh` — one-shot installer. Expected to be interactive.
 
@@ -38,10 +41,12 @@ Load-bearing. When a proposed change doesn't fit, the right answer is usually "d
 
 These have been considered and rejected for this repo. Point at the named alternative rather than reimplementing:
 
+- **Cross-harness orchestration as a coordination layer.** Harness-neutral *wrappers* are in scope (the `agent-*` scripts plus the harness map). A coordination layer — task queues, agent-to-agent messaging, shared state, scheduler — is not. For that, point at Claude Code's official Agent Teams + subagents (single-host), `mcp-agent-bridge` / `claude-squad` (cross-harness, with caveats), or roll a thin coordinator outside this repo.
 - Agent farms / parallel multi-Claude orchestration / CI auto-fixers — see `claude_code_agent_farm`, `ComposioHQ/agent-orchestrator`.
-- Git-worktree-per-agent isolation — orthogonal approach; our isolation primitive is bwrap (`claude-spawn-sandbox`).
+- Git-worktree-per-agent isolation — orthogonal approach; our isolation primitive is bwrap (`agent-spawn-sandbox`).
 - Notification bridges (ntfy / Discord / Telegram) — see `tap-to-tmux`, or Claude Code Channels. If added here, it belongs in a separate opt-in script, not baked into the core.
 - Web dashboards, TUI frontends, multi-user support.
+- **Per-harness paste/idle adapters for stub harnesses (Phase 2).** Each non-Claude harness has its own TUI quirks (paste-vs-Enter timing, idle pattern). Wiring those is real work and should be done when the user actually adopts that harness, not pre-emptively. Until then, `agent-spawn` correctly refuses stub harnesses with a clear error.
 
 ## Compare-yourself audit
 

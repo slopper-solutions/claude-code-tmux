@@ -1,0 +1,37 @@
+#!/bin/sh
+# agent-talk: send input (text + Enter) to the LLM TUI in a tmux window inside
+# the persistent `main` session. Harness-agnostic at the send-keys layer; the
+# paste/Enter dance is currently Claude-tuned (Phase 2 will dispatch per harness).
+#
+# Usage: agent-talk <window> <text...>
+#   <window>: tmux window slug. Bare names are decorated to "[<host>][claude] <slug>"
+#   by default. Pass the full bracket-prefixed name to target a window from a
+#   different host or non-claude harness.
+set -e
+
+if [ $# -lt 2 ]; then
+	echo "usage: agent-talk <window> <text...>" >&2
+	echo "  Sends <text> + Enter to tmux window main:<window>." >&2
+	echo "  Bare names are decorated to '[<host>][claude] <slug>'. Pass the full" >&2
+	echo "  '[host][harness] slug' form for foreign hosts or non-claude harnesses." >&2
+	exit 2
+fi
+
+SESSION="main"
+WIN="$1"
+shift
+
+HN="$(uname -n)"
+HN="${HN%%.*}"
+[ -n "$HN" ] || HN="host"
+
+WIN="${WIN#=}"
+case "$WIN" in
+	\[*\]*) ;;                       # already decorated (legacy or new form)
+	*)      WIN="[$HN][claude] $WIN" ;;
+esac
+
+# Text and Enter sent separately: see agent-spawn for the paste-vs-submit reasoning.
+tmux send-keys -l -t "$SESSION:=$WIN" "$*"
+sleep 0.3
+tmux send-keys -t "$SESSION:=$WIN" Enter

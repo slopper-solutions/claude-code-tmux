@@ -1,0 +1,53 @@
+#!/bin/sh
+# agent-list: list LLM windows in the persistent `main` tmux session, with
+# detected harness and main/helper role.
+#
+# Output is tab-separated, stable:
+#   <role>\t<harness>\t<window-name>
+# where:
+#   role    = "main" if window slug is "main", else "helper"
+#   harness = parsed from window name; "claude" assumed for legacy [host] form
+#             or bare slugs without bracket prefix
+set -e
+
+SESSION="main"
+
+if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+	echo "no tmux session '$SESSION' running" >&2
+	echo "(is claude-tmux.service up? try: systemctl --user status claude-tmux)" >&2
+	exit 1
+fi
+
+HN=$(uname -n)
+HN=${HN%%.*}
+[ -n "$HN" ] || HN="host"
+
+# Forms recognized:
+#   [host][harness] slug   — current canonical
+#   [host] slug            — legacy claude (pre-cross-harness rename)
+#   slug                   — very old bare form
+tmux list-windows -t "$SESSION" -F '#{window_name}' | while IFS= read -r name; do
+	case "$name" in
+		\[*\]\[*\]\ *)
+			rest=${name#\[*\]}
+			harness=${rest#\[}
+			harness=${harness%%\]*}
+			slug=${rest#\[*\] }
+			;;
+		\[*\]\ *)
+			harness=claude
+			slug=${name#\[*\] }
+			;;
+		*)
+			harness=claude
+			slug=$name
+			;;
+	esac
+
+	case "$slug" in
+		main) role=main ;;
+		*)    role=helper ;;
+	esac
+
+	printf '%s\t%s\t%s\n' "$role" "$harness" "$name"
+done

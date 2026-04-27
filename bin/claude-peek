@@ -1,49 +1,5 @@
 #!/bin/sh
-# claude-peek: print the current pane contents of a running Claude window.
-# Read-only counterpart to claude-talk — use to see what a helper last said,
-# whether it's stuck at a prompt, or what state it's in before acting on it.
-#
-# Usage: claude-peek [-n <lines>] <window>
-#   <lines> extends the capture upward into tmux scrollback by that many
-#   lines. Without -n, you get the visible pane only.
+# DEPRECATED: forwards to agent-peek. See bin/agent-peek (canonical).
 set -e
-
-SESSION="main"
-LINES=""
-HN="$(uname -n)"
-HN="${HN%%.*}"
-[ -n "$HN" ] || HN="host"
-
-while [ $# -gt 0 ]; do
-	case "$1" in
-		-n)   LINES="$2"; shift 2 ;;
-		-n*)  LINES="${1#-n}"; shift ;;
-		--)   shift; break ;;
-		-*)   echo "claude-peek: unknown flag: $1" >&2; exit 2 ;;
-		*)    break ;;
-	esac
-done
-
-if [ $# -lt 1 ]; then
-	echo "usage: claude-peek [-n <lines>] <window>" >&2
-	echo "  Prints pane contents of main:<window>." >&2
-	echo "  Bare names are decorated to '[<hostname>] <name>'; pass the full" >&2
-	echo "  '[host] name' form to peek at a window from another host." >&2
-	echo "  -n <lines> extends capture into scrollback above the visible region." >&2
-	exit 2
-fi
-
-WIN="${1#=}"
-# Bare name (no '[...]' prefix) → decorate with this host's prefix, matching
-# the convention claude-spawn uses. A caller targeting a foreign host passes
-# the full '[host] name' form, which is left alone.
-case "$WIN" in
-	\[*\]\ *) ;;
-	*) WIN="[$HN] $WIN" ;;
-esac
-
-if [ -n "$LINES" ]; then
-	tmux capture-pane -p -S "-$LINES" -t "$SESSION:=$WIN"
-else
-	tmux capture-pane -p -t "$SESSION:=$WIN"
-fi
+echo "claude-peek: DEPRECATED — use 'agent-peek' instead." >&2
+exec agent-peek "$@"

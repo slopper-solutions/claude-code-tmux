@@ -7,15 +7,40 @@ N+1 solution for setting up Claude Code on a remote server with tmux. Wow. Excit
 
 Working with Claude Code in the app is 'fine', but you can only really control your
 single instance of Claude Code via --rc. This helps alleviate that by giving you a
-handful of skills and scripts that Claude Code can run (by simply asking) to spawn
-a new Claude Code session, in case you want to work within different contexts without
-potentially murking the context you're working in. Equally, this allows your setup
-to be persistent and easily restartable via systemctl - once you have it set up,
-all you need to do is start the service unit, and you can connect to the main window.
+handful of skills and scripts that Claude Code (or another supported harness) can
+run (by simply asking) to spawn a new agent session, in case you want to work within
+different contexts without potentially murking the context you're working in. Equally,
+this allows your setup to be persistent and easily restartable via systemctl - once
+you have it set up, all you need to do is start the service unit, and you can connect
+to the main window.
 
 By default, this will automatically setup ALL SSH logins to immediately connect to
 the current tmux session that has Claude Code. This effectively turns an entire box
 into a slop system that you can prompt and vibe your tokens off. Amazing.
+
+Harnesses
+---------
+
+The helpers are harness-neutral as of the `agent-*` rename. The harness map at
+`~/.config/remote-claude/harnesses.conf` registers Claude Code, Codex CLI,
+Gemini CLI, and OpenCode. Phase 1 wires Claude Code (`STATUS=stable`) only;
+the others are `STATUS=stub` — registered for dispatch but `agent-spawn` will
+refuse them until per-harness paste/idle adapters are written. Skills install
+into each harness's user-level skills directory at setup time, conditional on
+the relevant binary being on PATH.
+
+Migration note
+--------------
+
+Window naming changed from `[<host>] <slug>` to `[<host>][<harness>] <slug>`.
+After upgrading, the next `systemctl --user restart claude-tmux` brings up the
+main window as `[<host>][claude] main`. Existing `[<host>] <slug>` windows
+from a long-running session keep working — `agent-list`, `agent-talk`,
+`agent-peek`, `agent-kill` all accept both forms.
+
+The `claude-*` scripts (`claude-spawn`, `claude-talk`, etc.) still work but are
+deprecated forwarders that print a warning and call the matching `agent-*`.
+Migrate when convenient.
 
 Usage
 -----

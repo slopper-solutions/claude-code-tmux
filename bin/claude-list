@@ -1,30 +1,7 @@
 #!/bin/sh
-# claude-list: list Claude Code instances running in the persistent `main`
-# tmux session. Marks which window is the main session vs spawned helpers.
-#
-# Output format (tab-separated, stable):
-#   main    [hostname] main
-#   helper  [hostname] auth-refactor
-#   helper  [hostname] deploy-watcher
+# DEPRECATED: forwards to agent-list. See bin/agent-list (canonical).
+# Note: agent-list output adds a harness column, so any scripts parsing the
+# old "main\t<window>" / "helper\t<window>" two-column form need updating.
 set -e
-
-SESSION="main"
-
-if ! tmux has-session -t "$SESSION" 2>/dev/null; then
-	echo "no tmux session '$SESSION' running" >&2
-	echo "(is claude-tmux.service up? try: systemctl --user status claude-tmux)" >&2
-	exit 1
-fi
-
-HN=$(uname -n)
-HN=${HN%%.*}
-[ -n "$HN" ] || HN="host"
-MAIN_WIN="[$HN] main"
-
-tmux list-windows -t "$SESSION" -F '#{window_name}' | while IFS= read -r name; do
-	if [ "$name" = "$MAIN_WIN" ] || [ "$name" = "main" ]; then
-		printf 'main\t%s\n' "$name"
-	else
-		printf 'helper\t%s\n' "$name"
-	fi
-done
+echo "claude-list: DEPRECATED — use 'agent-list' instead. Output format adds a harness column." >&2
+exec agent-list "$@"
